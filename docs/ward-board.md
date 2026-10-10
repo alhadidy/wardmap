@@ -18,6 +18,23 @@ Shows every bed in the ward:
 Patients in the ward without a bed are listed under **Without a bed**.
 Admins add beds with **+** and remove an empty bed with a long press.
 
+### Ward map
+
+Admins can draw each ward like a floor plan so beds appear where they really
+are. Tap **Edit map** (the pin icon) on the ward board:
+
+- Set the grid size with the **rows** and **columns** buttons.
+- Tap an empty cell to put an existing bed there, add a new bed there, or add
+  a label such as *Nurse station*, *Entrance* or *WC*.
+- Tap a bed or label to pick it up, then tap an empty cell to move it. While
+  picked you can also **Take off map** (beds) or **Delete** it.
+- Tap the tick when done.
+
+Beds not yet on the map are listed under **Not on the map**. Until anything
+is placed, the board simply lists the beds. Everyone sees the map; only
+admins can change it. Map changes are kept in the change history like
+everything else.
+
 ## Admitting
 
 Tap **Admit** (or a free bed). Fill in MRN and name; date of birth, sex, bed

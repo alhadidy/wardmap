@@ -8,6 +8,9 @@ import 'patient_screen.dart';
 
 /// One ward at a glance: every bed, free or taken, and the patients in it
 /// that I can see. Taken beds whose patient I can't see show as "Occupied".
+///
+/// Once an admin lays the ward out on its map (Edit map), beds are drawn
+/// where they really are, with landmarks such as the nurse station.
 class WardBoardScreen extends StatefulWidget {
   const WardBoardScreen({super.key, required this.me, required this.ward});
 
@@ -19,46 +22,107 @@ class WardBoardScreen extends StatefulWidget {
 }
 
 class _WardBoard {
-  _WardBoard(this.beds, this.occupied, this.patients);
+  _WardBoard(
+    this.ward,
+    this.beds,
+    this.occupied,
+    this.patients,
+    this.landmarks,
+  );
 
+  final Map<String, dynamic> ward;
   final List<Map<String, dynamic>> beds;
   final Set<String> occupied;
   final List<Map<String, dynamic>> patients;
+  final List<Map<String, dynamic>> landmarks;
+
+  int get rows => ward['map_rows'];
+  int get columns => ward['map_columns'];
 
   Map<String, dynamic>? patientIn(String bedId) =>
       patients.where((p) => p['bed_id'] == bedId).firstOrNull;
 
   List<Map<String, dynamic>> get withoutBed =>
       patients.where((p) => p['bed_id'] == null).toList();
+
+  bool _at(Map<String, dynamic> item, int row, int column) =>
+      item['map_row'] == row && item['map_column'] == column;
+
+  Map<String, dynamic>? bedAt(int row, int column) =>
+      beds.where((b) => _at(b, row, column)).firstOrNull;
+
+  Map<String, dynamic>? landmarkAt(int row, int column) =>
+      landmarks.where((l) => _at(l, row, column)).firstOrNull;
+
+  /// Beds not on the map, or outside it after the map was made smaller.
+  List<Map<String, dynamic>> get bedsOffMap => beds
+      .where(
+        (b) =>
+            b['map_row'] == null ||
+            b['map_row'] >= rows ||
+            b['map_column'] >= columns,
+      )
+      .toList();
+
+  bool get hasMap => beds.length > bedsOffMap.length || landmarks.isNotEmpty;
+
+  /// True if nothing sits in that row (or column), so it can be removed.
+  bool rowIsEmpty(int row) =>
+      ![...beds, ...landmarks].any((i) => i['map_row'] == row);
+
+  bool columnIsEmpty(int column) =>
+      ![...beds, ...landmarks].any((i) => i['map_column'] == column);
+}
+
+/// Something picked on the map in edit mode, waiting for a cell to move to.
+class _Picked {
+  _Picked(this.item, {required this.isBed});
+
+  final Map<String, dynamic> item;
+  final bool isBed;
+
+  String get name => isBed ? 'Bed ${item['label']}' : item['label'];
 }
 
 class _WardBoardScreenState extends State<WardBoardScreen> {
   String get _wardId => widget.ward['id'];
   late Future<_WardBoard> _board = _load();
+  bool _editing = false;
+  _Picked? _picked;
+
+  static const _minCellWidth = 72.0;
+  static const _maxCellWidth = 120.0;
+  static const _cellHeight = 72.0;
 
   Future<_WardBoard> _load() async => _WardBoard(
+    await Api.ward(_wardId),
     await Api.beds(_wardId),
     await Api.occupiedBeds(_wardId),
     await Api.wardPatients(_wardId),
+    await Api.landmarks(_wardId),
   );
 
-  void _reload() => setState(() => _board = _load());
+  void _reload() => setState(() {
+    _picked = null;
+    _board = _load();
+  });
 
   Future<void> _open(Widget screen) async {
     await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     _reload();
   }
 
+  Future<void> _do(Future<void> Function() action, String done) async {
+    if (await runAction(context, action, done)) _reload();
+  }
+
   Future<void> _addBed() async {
     final label = await askText(context, 'New bed', 'Bed name or number');
     if (label == null || !mounted) return;
-    if (await runAction(
-      context,
+    await _do(
       () => Api.addBed(widget.me.hospitalId, _wardId, label),
       'Bed added',
-    )) {
-      _reload();
-    }
+    );
   }
 
   Future<void> _deleteBed(Map<String, dynamic> bed) async {
@@ -66,14 +130,82 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
         !mounted) {
       return;
     }
-    if (await runAction(
-      context,
-      () => Api.deleteBed(bed['id']),
-      'Bed removed',
-    )) {
-      _reload();
+    await _do(() => Api.deleteBed(bed['id']), 'Bed removed');
+  }
+
+  // ---- Map editing (admins) ----
+
+  Future<void> _resize(_WardBoard board, int rows, int columns) async {
+    if (rows < board.rows && !board.rowIsEmpty(board.rows - 1) ||
+        columns < board.columns && !board.columnIsEmpty(board.columns - 1)) {
+      showMessage(context, 'Move things out of the last row or column first');
+      return;
+    }
+    await _do(() => Api.setMapSize(_wardId, rows, columns), 'Map resized');
+  }
+
+  Future<void> _tapEmptyCell(_WardBoard board, int row, int column) async {
+    final picked = _picked;
+    if (picked != null) {
+      await _do(
+        () => picked.isBed
+            ? Api.placeBed(picked.item['id'], row, column)
+            : Api.moveLandmark(picked.item['id'], row, column),
+        'Moved ${picked.name}',
+      );
+      return;
+    }
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final bed in board.bedsOffMap)
+              ListTile(
+                leading: const Icon(Icons.bed),
+                title: Text('Put bed ${bed['label']} here'),
+                onTap: () => Navigator.pop(context, 'bed:${bed['id']}'),
+              ),
+            ListTile(
+              leading: const Icon(Icons.add),
+              title: const Text('New bed here'),
+              onTap: () => Navigator.pop(context, 'new-bed'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.label_outline),
+              title: const Text('Label here (e.g. Nurse station)'),
+              onTap: () => Navigator.pop(context, 'landmark'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice.startsWith('bed:')) {
+      await _do(
+        () => Api.placeBed(choice.substring(4), row, column),
+        'Bed placed',
+      );
+    } else if (choice == 'new-bed') {
+      final label = await askText(context, 'New bed', 'Bed name or number');
+      if (label == null || !mounted) return;
+      await _do(
+        () => Api.addBedAt(widget.me.hospitalId, _wardId, label, row, column),
+        'Bed added',
+      );
+    } else {
+      final label = await askText(context, 'Label', 'e.g. Nurse station');
+      if (label == null || !mounted) return;
+      await _do(
+        () =>
+            Api.addLandmark(widget.me.hospitalId, _wardId, label, row, column),
+        'Label added',
+      );
     }
   }
+
+  // ---- Building the screen ----
 
   @override
   Widget build(BuildContext context) {
@@ -82,21 +214,31 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
       appBar: AppBar(
         title: Text(widget.ward['name']),
         actions: [
-          if (widget.me.isAdmin)
+          if (widget.me.isAdmin && !_editing)
             IconButton(
               tooltip: 'Add bed',
               onPressed: _addBed,
               icon: const Icon(Icons.add),
             ),
+          if (widget.me.isAdmin)
+            IconButton(
+              tooltip: _editing ? 'Done editing map' : 'Edit map',
+              onPressed: () => setState(() {
+                _editing = !_editing;
+                _picked = null;
+              }),
+              icon: Icon(_editing ? Icons.check : Icons.edit_location_alt),
+            ),
         ],
       ),
-      floatingActionButton: canAdmit
+      floatingActionButton: canAdmit && !_editing
           ? FloatingActionButton.extended(
               onPressed: () => _open(AdmitScreen(ward: widget.ward)),
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('Admit'),
             )
           : null,
+      bottomNavigationBar: _editing ? _editBar() : null,
       body: RefreshIndicator(
         onRefresh: () async {
           _reload();
@@ -115,6 +257,8 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
             final free = board.beds
                 .where((b) => !board.occupied.contains(b['id']))
                 .length;
+            final showMap = _editing || board.hasMap;
+            final listed = showMap ? board.bedsOffMap : board.beds;
             return ListView(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               children: [
@@ -123,17 +267,29 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
-                if (board.beds.isEmpty)
+                if (_editing) _sizeControls(board),
+                if (board.beds.isEmpty && !_editing)
                   Text(
                     widget.me.isAdmin
-                        ? 'No beds yet. Use + to add them.'
+                        ? 'No beds yet. Use + to add them, or Edit map to '
+                              'draw the ward.'
                         : 'No beds yet.',
                   ),
+                if (showMap) _map(board),
+                if (showMap && listed.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Not on the map',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final bed in board.beds) _bedCard(board, bed),
+                    for (final bed in listed)
+                      SizedBox(width: 160, child: _bedCard(board, bed)),
                   ],
                 ),
                 if (board.withoutBed.isNotEmpty) ...[
@@ -159,7 +315,184 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     );
   }
 
-  Widget _bedCard(_WardBoard board, Map<String, dynamic> bed) {
+  /// Rows and columns steppers shown while editing.
+  Widget _sizeControls(_WardBoard board) {
+    Widget stepper(String label, int value, void Function(int) set) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('$label $value'),
+        IconButton(
+          tooltip: 'Fewer $label',
+          onPressed: value > 1 ? () => set(value - 1) : null,
+          icon: const Icon(Icons.remove),
+        ),
+        IconButton(
+          tooltip: 'More $label',
+          onPressed: value < 30 ? () => set(value + 1) : null,
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
+    return Wrap(
+      spacing: 16,
+      children: [
+        stepper('rows', board.rows, (r) => _resize(board, r, board.columns)),
+        stepper('columns', board.columns, (c) => _resize(board, board.rows, c)),
+      ],
+    );
+  }
+
+  /// The ward drawn as a grid. Cells shrink to fit the screen, down to a
+  /// readable minimum; beyond that the map scrolls sideways.
+  Widget _map(_WardBoard board) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cellWidth = (constraints.maxWidth / board.columns).clamp(
+          _minCellWidth,
+          _maxCellWidth,
+        );
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var row = 0; row < board.rows; row++)
+                Row(
+                  children: [
+                    for (var column = 0; column < board.columns; column++)
+                      SizedBox(
+                        width: cellWidth,
+                        height: _cellHeight,
+                        child: _cell(board, row, column),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _cell(_WardBoard board, int row, int column) {
+    final colors = Theme.of(context).colorScheme;
+    final bed = board.bedAt(row, column);
+    final landmark = board.landmarkAt(row, column);
+    bool isPicked(Map<String, dynamic> item) =>
+        _picked?.item['id'] == item['id'];
+    void pick(Map<String, dynamic> item, bool isBed) => setState(
+      () => _picked = isPicked(item) ? null : _Picked(item, isBed: isBed),
+    );
+
+    if (bed != null) {
+      final card = _bedCard(board, bed, compact: true);
+      if (!_editing) return card;
+      return _Selectable(
+        label: 'Pick bed ${bed['label']}',
+        selected: isPicked(bed),
+        onTap: () => pick(bed, true),
+        child: IgnorePointer(child: card),
+      );
+    }
+    if (landmark != null) {
+      final label = Card(
+        elevation: 0,
+        color: colors.surfaceContainerHighest,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Text(
+              landmark['label'],
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+        ),
+      );
+      if (!_editing) return label;
+      return _Selectable(
+        label: 'Pick ${landmark['label']}',
+        selected: isPicked(landmark),
+        onTap: () => pick(landmark, false),
+        child: label,
+      );
+    }
+    if (!_editing) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Semantics(
+        button: true,
+        label: 'Cell ${row + 1}-${column + 1}',
+        child: InkWell(
+          onTap: () => _tapEmptyCell(board, row, column),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: colors.outlineVariant),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Icon(
+                _picked == null ? Icons.add : Icons.place,
+                size: 18,
+                color: colors.outline,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Shown at the bottom while editing: what to do with the picked item.
+  Widget _editBar() {
+    final picked = _picked;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: picked == null
+            ? const Text(
+                'Tap an empty cell to put a bed or label there. '
+                'Tap a bed or label to move or remove it.',
+              )
+            : Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  Text('Tap an empty cell to move ${picked.name}.'),
+                  if (picked.isBed)
+                    TextButton(
+                      onPressed: () => _do(
+                        () => Api.placeBed(picked.item['id'], null, null),
+                        'Taken off the map',
+                      ),
+                      child: const Text('Take off map'),
+                    ),
+                  TextButton(
+                    onPressed: () => picked.isBed
+                        ? _deleteBed(picked.item)
+                        : _do(
+                            () => Api.deleteLandmark(picked.item['id']),
+                            'Label removed',
+                          ),
+                    child: const Text('Delete'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => _picked = null),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _bedCard(
+    _WardBoard board,
+    Map<String, dynamic> bed, {
+    bool compact = false,
+  }) {
     final colors = Theme.of(context).colorScheme;
     final patient = board.patientIn(bed['id']);
     final taken = board.occupied.contains(bed['id']);
@@ -178,29 +511,73 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
           ? null
           : () => _open(AdmitScreen(ward: widget.ward, bedId: bed['id']));
     }
-    return SizedBox(
-      width: 160,
-      child: Card(
-        color: taken ? colors.secondaryContainer : colors.surfaceContainerLow,
-        child: InkWell(
-          onTap: onTap,
-          onLongPress: widget.me.isAdmin && !taken
-              ? () => _deleteBed(bed)
-              : null,
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bed ${bed['label']}',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(status, maxLines: 2, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+    return Card(
+      color: taken ? colors.secondaryContainer : colors.surfaceContainerLow,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: widget.me.isAdmin && !taken && !compact
+            ? () => _deleteBed(bed)
+            : null,
+        child: Padding(
+          padding: EdgeInsets.all(compact ? 8 : 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Bed ${bed['label']}',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              SizedBox(height: compact ? 2 : 4),
+              Text(
+                status,
+                maxLines: compact ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: compact ? Theme.of(context).textTheme.bodySmall : null,
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Highlights a map item that can be picked up and moved.
+class _Selectable extends StatelessWidget {
+  const _Selectable({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: GestureDetector(
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(
+              width: 2,
+              color: selected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.transparent,
+            ),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: child,
         ),
       ),
     );
