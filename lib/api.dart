@@ -67,7 +67,7 @@ class Api {
   static Future<List<Map<String, dynamic>>> beds(String wardId) async {
     final beds = await _db
         .from('beds')
-        .select('id, label')
+        .select('id, label, map_row, map_column')
         .eq('ward_id', wardId);
     int number(Map b) => int.tryParse(b['label']) ?? 1 << 30;
     return beds..sort((a, b) {
@@ -77,6 +77,78 @@ class Api {
           : (a['label'] as String).compareTo(b['label']);
     });
   }
+
+  static Future<Map<String, dynamic>> ward(String wardId) => _db
+      .from('wards')
+      .select('id, name, map_rows, map_columns')
+      .eq('id', wardId)
+      .single();
+
+  // ---- Ward map (admin only) ----
+
+  static Future<List<Map<String, dynamic>>> landmarks(String wardId) => _db
+      .from('ward_landmarks')
+      .select('id, label, map_row, map_column')
+      .eq('ward_id', wardId);
+
+  static Future<void> setMapSize(String wardId, int rows, int columns) =>
+      _mustChange(
+        _db
+            .from('wards')
+            .update({'map_rows': rows, 'map_columns': columns})
+            .eq('id', wardId)
+            .select(),
+      );
+
+  /// Puts a bed in a map cell, or takes it off the map (row and column null).
+  static Future<void> placeBed(String bedId, int? row, int? column) =>
+      _mustChange(
+        _db
+            .from('beds')
+            .update({'map_row': row, 'map_column': column})
+            .eq('id', bedId)
+            .select(),
+      );
+
+  static Future<void> addBedAt(
+    String hospitalId,
+    String wardId,
+    String label,
+    int row,
+    int column,
+  ) => _db.from('beds').insert({
+    'hospital_id': hospitalId,
+    'ward_id': wardId,
+    'label': label.trim(),
+    'map_row': row,
+    'map_column': column,
+  });
+
+  static Future<void> addLandmark(
+    String hospitalId,
+    String wardId,
+    String label,
+    int row,
+    int column,
+  ) => _db.from('ward_landmarks').insert({
+    'hospital_id': hospitalId,
+    'ward_id': wardId,
+    'label': label.trim(),
+    'map_row': row,
+    'map_column': column,
+  });
+
+  static Future<void> moveLandmark(String id, int row, int column) =>
+      _mustChange(
+        _db
+            .from('ward_landmarks')
+            .update({'map_row': row, 'map_column': column})
+            .eq('id', id)
+            .select(),
+      );
+
+  static Future<void> deleteLandmark(String id) =>
+      _mustChange(_db.from('ward_landmarks').delete().eq('id', id).select());
 
   /// Ids of taken beds in a ward, including beds whose patient I can't see.
   static Future<Set<String>> occupiedBeds(String wardId) async {
