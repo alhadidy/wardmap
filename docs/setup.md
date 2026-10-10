@@ -28,18 +28,21 @@ Wardmap has two parts:
 3. In the Supabase dashboard, under Authentication → Providers → Email, turn
    **off** "Confirm email" (usernames map to made-up emails that can't receive mail).
 
-## 2. Create the first hospital and admin
+## 2. Create a hospital and its admin
 
-Run once (replace the values):
+Run this for the first hospital, and again for each hospital you add later
+(replace the values):
 
 ```sh
 curl -X POST https://<project-ref>.supabase.co/functions/v1/manage-staff \
   -H "Content-Type: application/json" \
-  -d '{"action":"setup","setup_key":"<SETUP_KEY>","hospital_name":"General Hospital",
+  -H "apikey: <publishable-key>" \
+  -d '{"action":"add_hospital","setup_key":"<SETUP_KEY>","hospital_name":"General Hospital",
        "username":"admin","full_name":"Ward Admin","pin":"123456"}'
 ```
 
-This only works while there are no accounts. Log in as that admin, then:
+Only someone who knows `SETUP_KEY` can add hospitals. Each hospital's staff
+see only their own hospital. Log in as the new admin, then:
 
 1. **Wards tab → New ward** for each ward.
 2. Open each ward and use **+** to add its beds.
@@ -54,11 +57,34 @@ flutter run -d chrome \
   --dart-define=SUPABASE_KEY=<publishable-key>
 ```
 
-Build the website with `flutter build web` and the same two `--dart-define`s;
-the result is in `build/web/` and can be hosted anywhere that serves files.
+Optional: `--dart-define=IDLE_MINUTES=10` changes the automatic logout
+(default 15 minutes without a tap or key press).
+
+## 4. Host the web app
+
+The repository publishes the web app to **GitHub Pages** every time `main`
+changes (`.github/workflows/deploy-web.yml`). One-time setup on GitHub:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+   (Pages on a private repository needs a paid GitHub plan; otherwise make
+   the repository public or use the alternative below.)
+2. **Settings → Secrets and variables → Actions → Variables**, add
+   `SUPABASE_URL` and `SUPABASE_KEY` (the publishable key, which is meant to
+   be public). Optionally `IDLE_MINUTES`.
+3. Re-run **Actions → Deploy web app**, or push to `main`.
+
+The app is then at `https://<github-user>.github.io/wardmap/`. Staff open
+it in a phone browser and use **Add to Home Screen** to get an app icon.
+
+**Alternative:** run `flutter build web` with the `--dart-define`s above and
+upload `build/web/` to any static host (Netlify, Cloudflare Pages, a hospital
+web server).
 
 ## Running the tests
 
-- App: `flutter test`
+- App: `flutter analyze` and `flutter test`
 - Database access rules, on any local Postgres 15+ (no Supabase needed):
   `supabase/tests/run_tests.sh`
+- Account function: `deno check supabase/functions/manage-staff/index.ts`
+
+GitHub runs all three on every pull request (`.github/workflows/ci.yml`).

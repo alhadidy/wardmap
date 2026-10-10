@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../api.dart';
 import '../roles.dart';
+import 'juniors_tab.dart';
 import 'login_screen.dart';
 import 'patients_tab.dart';
 import 'team_tab.dart';
 import 'wards_tab.dart';
 
-/// After login: the wards, my patients, and the team accounts I manage.
+/// After login: the wards, my patients, my juniors' patients (seniors only),
+/// and the team accounts I manage.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -45,6 +47,36 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }
+        // Anyone with doctors below them gets the Juniors tab.
+        final oversees = me.role.rank > StaffRole.rotator.rank && !me.isAdmin;
+        final tabs = [
+          (
+            const NavigationDestination(
+              icon: Icon(Icons.meeting_room),
+              label: 'Wards',
+            ),
+            WardsTab(me: me),
+          ),
+          (
+            const NavigationDestination(
+              icon: Icon(Icons.bed),
+              label: 'My patients',
+            ),
+            PatientsTab(me: me),
+          ),
+          if (oversees)
+            (
+              const NavigationDestination(
+                icon: Icon(Icons.supervisor_account),
+                label: 'Juniors',
+              ),
+              JuniorsTab(me: me),
+            ),
+          (
+            const NavigationDestination(icon: Icon(Icons.group), label: 'Team'),
+            TeamTab(me: me),
+          ),
+        ];
         return Scaffold(
           appBar: AppBar(
             title: Text('${me.fullName} · ${me.role.label}'),
@@ -56,25 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          body: switch (_tab) {
-            0 => WardsTab(me: me),
-            1 => PatientsTab(me: me),
-            _ => TeamTab(me: me),
-          },
+          body: tabs[_tab].$2,
           bottomNavigationBar: NavigationBar(
             selectedIndex: _tab,
             onDestinationSelected: (i) => setState(() => _tab = i),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.meeting_room),
-                label: 'Wards',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.bed),
-                label: 'My patients',
-              ),
-              NavigationDestination(icon: Icon(Icons.group), label: 'Team'),
-            ],
+            destinations: [for (final t in tabs) t.$1],
           ),
         );
       },

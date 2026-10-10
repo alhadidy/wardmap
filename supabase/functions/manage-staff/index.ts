@@ -12,9 +12,11 @@
 //   { "action": "create", "username", "full_name", "role", "pin" }
 //   { "action": "reset_pin", "staff_id", "pin" }
 //   { "action": "set_active", "staff_id", "active": true|false }
-//   { "action": "setup", "setup_key", "hospital_name", "username", "full_name", "pin" }
-//       One-time: creates the first hospital and its first admin. Only works
-//       while there are no staff at all, and needs the SETUP_KEY secret.
+//   { "action": "add_hospital", "setup_key", "hospital_name", "username", "full_name", "pin" }
+//       Creates a hospital and its first admin. Needs the SETUP_KEY secret,
+//       which only whoever runs the Supabase project knows. Used for the
+//       first hospital and for every hospital added later. ("setup" is the
+//       older name for the same action.)
 //
 // See docs/roles-and-access.md.
 
@@ -54,7 +56,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return reply(200, {});
   const body = await req.json().catch(() => ({}));
 
-  if (body.action === "setup") return setup(body);
+  if (body.action === "add_hospital" || body.action === "setup") return addHospital(body);
 
   // Who is calling?
   const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
@@ -125,26 +127,31 @@ async function logAction(me: { id: string; hospital_id: string }, what: string, 
   });
 }
 
-async function setup(body: Record<string, string>) {
+async function addHospital(body: Record<string, string>) {
   const key = Deno.env.get("SETUP_KEY");
   if (!key || body.setup_key !== key) return reply(403, { error: "Wrong setup key" });
-
-  const { count } = await admin.from("staff").select("*", { count: "exact", head: true });
-  if ((count ?? 0) > 0) return reply(403, { error: "Setup already done" });
 
   const { hospital_name, username, full_name, pin } = body;
   if (!hospital_name || !full_name || !validUsername(username) || !validPin(pin)) {
     return reply(400, { error: "hospital_name, username, full_name and a 6-12 digit pin are required" });
   }
 
-  const { data: hospital } = await admin.from("hospitals").insert({ name: hospital_name }).select().single();
+  // Create the login first, so a taken username doesn't leave an empty hospital.
   const { data: created, error } = await admin.auth.admin.createUser({
     email: emailFor(username), password: pin, email_confirm: true,
   });
-  if (error || !hospital) return reply(400, { error: error?.message ?? "Could not create hospital" });
+  if (error) return reply(400, { error: "That username is taken" });
 
-  await admin.from("staff").insert({
-    id: created.user.id, hospital_id: hospital.id, username, full_name, role: "admin",
-  });
-  return reply(200, { hospital_id: hospital.id, admin_id: created.user.id });
+  const { data: hospital } = await admin.from("hospitals").insert({ name: hospital_name }).select().single();
+  const { error: staffError } = hospital
+    ? await admin.from("staff").insert({
+      id: created.user.id, hospital_id: hospital.id, username, full_name, role: "admin",
+    })
+    : { error: true };
+  if (staffError) {
+    await admin.auth.admin.deleteUser(created.user.id);
+    if (hospital) await admin.from("hospitals").delete().eq("id", hospital.id);
+    return reply(400, { error: "Could not create the hospital" });
+  }
+  return reply(200, { hospital_id: hospital!.id, admin_id: created.user.id });
 }

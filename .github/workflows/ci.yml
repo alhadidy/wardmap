@@ -1,0 +1,53 @@
+# Runs every check on each pull request and on main.
+# The same commands work locally; see docs/setup.md "Running the tests".
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  app:
+    name: App (analyze, test, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build web --dart-define=SUPABASE_URL=https://example.supabase.co --dart-define=SUPABASE_KEY=ci
+
+  database:
+    name: Database access rules
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - run: supabase/tests/run_tests.sh
+
+  accounts-function:
+    name: Account function (type check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check supabase/functions/manage-staff/index.ts

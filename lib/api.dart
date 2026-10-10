@@ -11,8 +11,16 @@ class Api {
   static String _emailFor(String username) =>
       '${username.trim().toLowerCase()}@wardmap.local';
 
-  static Future<void> logIn(String username, String pin) =>
-      _db.auth.signInWithPassword(email: _emailFor(username), password: pin);
+  /// Remembered so the PIN screen after an automatic logout is prefilled.
+  static String? lastUsername;
+
+  static Future<void> logIn(String username, String pin) async {
+    await _db.auth.signInWithPassword(
+      email: _emailFor(username),
+      password: pin,
+    );
+    lastUsername = username.trim().toLowerCase();
+  }
 
   static Future<void> logOut() => _db.auth.signOut();
 
@@ -37,14 +45,62 @@ class Api {
 
   /// Patients I can see (my care teams, plus juniors' patients I oversee),
   /// with their ward name. Discharged patients are left out.
-  static Future<List<Map<String, dynamic>>> currentPatients() async {
-    return await _db
+  /// Patients I can see, current ones only unless [includeDischarged].
+  /// [search] matches the name or MRN.
+  static Future<List<Map<String, dynamic>>> patients({
+    String search = '',
+    bool includeDischarged = false,
+  }) async {
+    var query = _db
         .from('patients')
         .select(
-          'id, mrn, full_name, admitted_at, ward_id, wards(name), beds(label)',
-        )
-        .isFilter('discharged_at', null)
-        .order('admitted_at', ascending: true);
+          'id, mrn, full_name, admitted_at, discharged_at, ward_id, '
+          'wards(name), beds(label)',
+        );
+    if (!includeDischarged) query = query.isFilter('discharged_at', null);
+    final words = search.trim().replaceAll(RegExp(r'[,()%*]'), ' ');
+    if (words.isNotEmpty) {
+      query = query.or('full_name.ilike.%$words%,mrn.ilike.%$words%');
+    }
+    return query.order('admitted_at').limit(200);
+  }
+
+  /// For seniors: every current patient followed by someone junior to me,
+  /// as care-team rows with the patient attached.
+  static Future<List<Map<String, dynamic>>> teamFollowUps() => _db
+      .from('patient_team')
+      .select(
+        'staff_id, access, '
+        'patients!inner(id, full_name, mrn, discharged_at, wards(name), beds(label))',
+      )
+      .isFilter('patients.discharged_at', null);
+
+  /// Number of open tasks per patient, for the patients I can see.
+  static Future<Map<String, int>> openTaskCounts() async {
+    final rows = await _db
+        .from('tasks')
+        .select('patient_id')
+        .isFilter('done_at', null);
+    final counts = <String, int>{};
+    for (final r in rows) {
+      counts.update(r['patient_id'], (n) => n + 1, ifAbsent: () => 1);
+    }
+    return counts;
+  }
+
+  /// Time of the latest progress note per patient (last 2 days only).
+  static Future<Map<String, String>> latestNotes() async {
+    final since = DateTime.now().subtract(const Duration(days: 2));
+    final rows = await _db
+        .from('notes')
+        .select('patient_id, created_at')
+        .gte('created_at', since.toUtc().toIso8601String())
+        .order('created_at');
+    final latest = <String, String>{};
+    for (final r in rows) {
+      latest.putIfAbsent(r['patient_id'], () => r['created_at']);
+    }
+    return latest;
   }
 
   /// The database skips rows I'm not allowed to change instead of failing,

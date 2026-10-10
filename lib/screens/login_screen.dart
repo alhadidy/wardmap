@@ -5,14 +5,20 @@ import 'home_screen.dart';
 
 /// Username + PIN. Accounts are created by a senior, never self-registered.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.username, this.message});
+
+  /// Prefilled after an automatic logout.
+  final String? username;
+
+  /// Shown above the form, e.g. why the user was logged out.
+  final String? message;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _username = TextEditingController();
+  late final _username = TextEditingController(text: widget.username);
   final _pin = TextEditingController();
   bool _busy = false;
   String? _error;
@@ -52,6 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
+                if (widget.message != null) ...[
+                  const SizedBox(height: 16),
+                  Text(widget.message!, textAlign: TextAlign.center),
+                ],
                 const SizedBox(height: 24),
                 TextField(
                   controller: _username,
