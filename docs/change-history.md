@@ -10,7 +10,8 @@ do it.
 |---|---|
 | `at` | When it happened |
 | `actor_id` | Who did it (staff id; empty for system setup) |
-| `table_name` | What kind of record (`patients`, `patient_team`, `wards`, …; `accounts` for logins created, PINs reset, accounts deactivated) |
+| `table_name` | What kind of record (`patients`, `patient_team`, `notes`, `vitals`, `wards`, …; `accounts` for logins created, PINs reset, accounts deactivated) |
+| `patient_id` | The patient it belongs to, if any, so a patient's full history is one query |
 | `row_id` | Which record |
 | `action` | `insert`, `update` or `delete` |
 | `old_data` | The whole record before the change |
@@ -26,21 +27,21 @@ from the database owner. Entries are only ever added.
 ## Who can read it
 
 - Admins read their whole hospital's history.
-- Anyone who can see a patient can read that patient's history and care-team history.
+- Anyone who can see a patient can read that patient's whole history.
 
 ## Reviewing it
 
-In the Supabase SQL editor, for example, everything that happened to one
+In the app: open a patient and choose the **History** tab.
+
+In the Supabase SQL editor, for example everything that happened to one
 patient, with names:
 
 ```sql
-select a.at, s.full_name as who, a.action, a.old_data, a.new_data
+select a.at, s.full_name as who, a.table_name, a.action, a.old_data, a.new_data
 from audit_log a left join staff s on s.id = a.actor_id
-where a.table_name = 'patients' and a.row_id = '<patient id>'
+where a.patient_id = '<patient id>'
 order by a.at;
 ```
-
-A history screen inside the app comes with the full patient record (step 3).
 
 ## Adding a new table
 

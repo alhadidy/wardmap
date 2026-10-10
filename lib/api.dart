@@ -173,6 +173,73 @@ class Api {
         .select(),
   );
 
+  // ---- Patient record sections (see record_sections.dart) ----
+
+  static Future<List<Map<String, dynamic>>> records(
+    String table,
+    String patientId,
+    String orderBy,
+  ) => _db.from(table).select().eq('patient_id', patientId).order(orderBy);
+
+  static Future<void> addRecord(
+    String table,
+    String hospitalId,
+    String patientId,
+    Map<String, dynamic> values,
+  ) => _db.from(table).insert({
+    ...values,
+    'hospital_id': hospitalId,
+    'patient_id': patientId,
+  });
+
+  static Future<void> updateRecord(
+    String table,
+    String id,
+    Map<String, dynamic> values,
+  ) => _mustChange(_db.from(table).update(values).eq('id', id).select());
+
+  static Future<void> deleteRecord(String table, String id) =>
+      _mustChange(_db.from(table).delete().eq('id', id).select());
+
+  static Future<void> setTaskDone(String id, bool done) => updateRecord(
+    'tasks',
+    id,
+    done
+        ? {
+            'done_at': DateTime.now().toUtc().toIso8601String(),
+            'done_by': _db.auth.currentUser!.id,
+          }
+        : {'done_at': null, 'done_by': null},
+  );
+
+  static Future<void> setDischargeSummary(String patientId, String text) =>
+      _mustChange(
+        _db
+            .from('patients')
+            .update({'discharge_summary': text})
+            .eq('id', patientId)
+            .select(),
+      );
+
+  /// Names for every ward and bed in my hospital, by id (used by History).
+  static Future<Map<String, String>> placeNames() async {
+    final wards = await _db.from('wards').select('id, name');
+    final beds = await _db.from('beds').select('id, label');
+    return {
+      for (final w in wards) w['id'] as String: w['name'] as String,
+      for (final b in beds) b['id'] as String: 'Bed ${b['label']}',
+    };
+  }
+
+  /// Everything that ever happened to this patient, newest first.
+  static Future<List<Map<String, dynamic>>> patientHistory(String patientId) =>
+      _db
+          .from('audit_log')
+          .select('at, actor_id, table_name, action, old_data, new_data')
+          .eq('patient_id', patientId)
+          .order('at')
+          .limit(500);
+
   // ---- Care teams ----
 
   static Future<List<Map<String, dynamic>>> careTeam(String patientId) => _db

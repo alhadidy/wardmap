@@ -16,6 +16,7 @@ on Android and iOS from one Flutter codebase.
 |---|---|
 | [docs/setup.md](docs/setup.md) | How to set up the backend and run the app |
 | [docs/ward-board.md](docs/ward-board.md) | Using the app day to day: wards, admitting, care teams, discharge |
+| [docs/patient-record.md](docs/patient-record.md) | The patient record tabs, and how to add a field |
 | [docs/roles-and-access.md](docs/roles-and-access.md) | Who can see and do what |
 | [docs/change-history.md](docs/change-history.md) | How every change is recorded and how to review it |
 | [docs/architecture.md](docs/architecture.md) | How the pieces fit together, and where to find things |
@@ -27,7 +28,7 @@ Built in four steps:
 
 1. **Foundation and access rules** (done): database, roles, change history, login, accounts.
 2. **Ward board and patient flow** (done): wards and beds, admit, transfer, discharge, care teams.
-3. Full patient record: problems, notes, vitals, labs, meds, tasks, discharge summary.
+3. **Full patient record** (done): problems, notes, vitals, results, meds, tasks, discharge summary, history.
 4. Launch: hosting, auto-logout, senior oversight view, pilot.
 
 ## Rule for every change

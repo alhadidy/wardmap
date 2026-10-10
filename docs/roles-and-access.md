@@ -27,6 +27,12 @@ You can edit a patient if you are on the care team with **owner** or **edit**
 access, or you are an admin. Overseeing a patient lets you read it, not edit
 it; to edit, you are added to the team.
 
+## The patient record
+
+Notes, vitals, results, medications, problems and tasks follow the same rules
+as the patient: whoever can see the patient reads them, whoever can edit the
+patient writes them. See [patient-record.md](patient-record.md).
+
 ## Care teams
 
 Each patient has a care team. Each member has one access level:
