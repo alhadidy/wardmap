@@ -1,3 +1,36 @@
 # Wardmap
 
-Ward patient management app. See the step 1 pull request.
+A simple app for managing patients on hospital wards. Works in the browser and
+on Android and iOS from one Flutter codebase.
+
+- Hospitals have wards, wards have beds, beds have patients.
+- Each patient has a care team: a responsible consultant plus the residents
+  following them up.
+- Seniors oversee juniors: R6 down to R1, then rotators.
+- No email signup. Seniors create username + PIN logins for people below them.
+- Every change to every record is kept forever in the change history.
+
+## Documentation
+
+| Read this | To learn |
+|---|---|
+| [docs/setup.md](docs/setup.md) | How to set up the backend and run the app |
+| [docs/roles-and-access.md](docs/roles-and-access.md) | Who can see and do what |
+| [docs/change-history.md](docs/change-history.md) | How every change is recorded and how to review it |
+| [docs/architecture.md](docs/architecture.md) | How the pieces fit together, and where to find things |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in the app, version by version |
+
+## Project status
+
+Built in four steps:
+
+1. **Foundation and access rules** (done): database, roles, change history, login, accounts.
+2. Ward board and patient flow: admit, transfer, discharge, assign doctors.
+3. Full patient record: problems, notes, vitals, labs, meds, tasks, discharge summary.
+4. Launch: hosting, auto-logout, senior oversight view, pilot.
+
+## Rule for every change
+
+Every pull request updates `CHANGELOG.md`, and updates the docs when behaviour
+changes. Database changes are new files in `supabase/migrations/` (never edit
+an old one), so the database has its own step-by-step history too.
