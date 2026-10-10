@@ -20,6 +20,16 @@ Changed
 Admin
 - Apply the new database migration (`supabase db push`).
 
+## 0.2.1 (2026-10-10): Ward map
+
+Added
+- Ward map: admins lay each ward out on a grid like a floor plan, placing
+  beds and labels (nurse station, entrance, WC…). The ward board then shows
+  beds where they really are. Beds not on the map are listed below it.
+
+Admin
+- Apply the new database migration (`supabase db push`).
+
 ## 0.2.0 (2026-10-10): Ward board and patient flow
 
 Added
