@@ -3,6 +3,23 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 0.3.0 (2026-10-10): Full patient record
+
+Added
+- Patient screen tabs: Overview, Problems, Notes, Vitals, Results, Meds,
+  Tasks and History.
+- Add, change and delete entries in each section (care-team editors).
+  Tasks can be assigned, given a due time and ticked off.
+- Discharge summary on the Overview tab.
+- History tab: every change to the patient, with who, when, and before → after.
+
+Changed
+- Each history entry now records its patient, so a patient's history is one query.
+- The author and time of every record entry come from the login and can't be changed.
+
+Admin
+- Apply the new database migration (`supabase db push`).
+
 ## 0.2.1 (2026-10-10): Ward map
 
 Added

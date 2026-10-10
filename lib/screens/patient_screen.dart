@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../record_sections.dart';
 import '../roles.dart';
 import '../ui.dart';
+import 'history_view.dart';
+import 'record_section_view.dart';
 
-/// One patient: details, care team, transfer and discharge.
-/// The full clinical record (notes, vitals, labs…) comes in step 3.
+/// One patient. Tabs: Overview (details, care team, discharge summary), one
+/// tab per record section (problems, notes, vitals, results, meds, tasks),
+/// and History. Transfer and discharge are in the ⋮ menu.
 class PatientScreen extends StatefulWidget {
   const PatientScreen({super.key, required this.me, required this.patientId});
 
@@ -141,50 +145,113 @@ class _PatientScreenState extends State<PatientScreen> {
         final p = v.patient;
         final discharged = p['discharged_at'] != null;
         final canEdit = _canEdit(v) && !discharged;
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(p['full_name']),
-            actions: [
-              if (canEdit)
-                PopupMenuButton<String>(
-                  onSelected: (c) =>
-                      c == 'transfer' ? _transfer(v) : _discharge(v),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'transfer',
-                      child: Text('Transfer / change bed'),
-                    ),
-                    PopupMenuItem(value: 'discharge', child: Text('Discharge')),
-                  ],
-                ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _details(p, discharged),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Care team',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  if (canEdit)
-                    TextButton.icon(
-                      onPressed: () => _addMember(v),
-                      icon: const Icon(Icons.person_add),
-                      label: const Text('Add'),
-                    ),
+        return DefaultTabController(
+          length: recordSections.length + 2,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Text(p['full_name']),
+              bottom: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                tabs: [
+                  const Tab(text: 'Overview'),
+                  for (final s in recordSections) Tab(text: s.title),
+                  const Tab(text: 'History'),
                 ],
               ),
-              for (final member in v.team) _memberTile(v, member),
-            ],
+              actions: [
+                if (canEdit)
+                  PopupMenuButton<String>(
+                    onSelected: (c) =>
+                        c == 'transfer' ? _transfer(v) : _discharge(v),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'transfer',
+                        child: Text('Transfer / change bed'),
+                      ),
+                      PopupMenuItem(
+                        value: 'discharge',
+                        child: Text('Discharge'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            body: TabBarView(
+              children: [
+                ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    _details(p, discharged),
+                    const SizedBox(height: 16),
+                    _dischargeSummary(v),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Care team',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        if (canEdit)
+                          TextButton.icon(
+                            onPressed: () => _addMember(v),
+                            icon: const Icon(Icons.person_add),
+                            label: const Text('Add'),
+                          ),
+                      ],
+                    ),
+                    for (final member in v.team) _memberTile(v, member),
+                  ],
+                ),
+                for (final section in recordSections)
+                  RecordSectionView(
+                    section: section,
+                    me: widget.me,
+                    patientId: widget.patientId,
+                    canEdit: canEdit,
+                    staff: v.staff,
+                  ),
+                HistoryView(patientId: widget.patientId, staff: v.staff),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  /// Written at discharge; editors can also fill it in after discharge.
+  Widget _dischargeSummary(_PatientView v) {
+    final summary = v.patient['discharge_summary'] as String?;
+    return Card(
+      child: ListTile(
+        title: const Text('Discharge summary'),
+        subtitle: Text(
+          summary == null || summary.isEmpty ? 'Not written yet' : summary,
+        ),
+        trailing: _canEdit(v) ? const Icon(Icons.edit) : null,
+        onTap: !_canEdit(v)
+            ? null
+            : () async {
+                final text = await showDialog<String>(
+                  context: context,
+                  builder: (_) => _LongTextDialog(
+                    title: 'Discharge summary',
+                    initial: summary ?? '',
+                  ),
+                );
+                if (text == null || !mounted) return;
+                if (await runAction(
+                  context,
+                  () => Api.setDischargeSummary(widget.patientId, text),
+                  'Saved',
+                )) {
+                  _reload();
+                }
+              },
+      ),
     );
   }
 
@@ -429,6 +496,46 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                   if (ok && context.mounted) Navigator.pop(context, true);
                 },
           child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+class _LongTextDialog extends StatefulWidget {
+  const _LongTextDialog({required this.title, required this.initial});
+
+  final String title;
+  final String initial;
+
+  @override
+  State<_LongTextDialog> createState() => _LongTextDialogState();
+}
+
+class _LongTextDialogState extends State<_LongTextDialog> {
+  late final _text = TextEditingController(text: widget.initial);
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: 480,
+        child: TextField(
+          controller: _text,
+          minLines: 6,
+          maxLines: 20,
+          autofocus: true,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _text.text.trim()),
+          child: const Text('Save'),
         ),
       ],
     );

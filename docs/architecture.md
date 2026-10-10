@@ -23,8 +23,9 @@ the app does not need its own permission logic beyond hiding buttons.
 | `lib/main.dart` | App start, picks login or home screen |
 | `lib/api.dart` | Every backend call, in one place |
 | `lib/roles.dart` | Roles and their seniority (mirrors the database) |
+| `lib/record_sections.dart` | The patient record's sections and fields; tabs and forms are built from it |
 | `lib/ui.dart` | Shared dialogs and friendly error messages |
-| `lib/screens/` | One file per screen or tab: `wards_tab`, `ward_board_screen`, `admit_screen`, `patient_screen`, `patients_tab`, `team_tab`, `login_screen` |
+| `lib/screens/` | One file per screen or tab: `wards_tab`, `ward_board_screen`, `admit_screen`, `patient_screen` (tabs), `record_section_view` (one record tab), `history_view`, `patients_tab`, `team_tab`, `login_screen` |
 | `supabase/migrations/` | Database changes, one file per change, applied in order |
 | `supabase/functions/manage-staff/` | Account creation, PIN reset, deactivation, first-time setup |
 | `supabase/tests/` | Database access-rule tests (plain Postgres) |
