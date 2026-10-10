@@ -1,0 +1,46 @@
+# Publishes the web app to GitHub Pages whenever main changes.
+# One-time setup (see docs/setup.md "Hosting the web app"):
+#   1. Settings → Pages → Source: GitHub Actions
+#   2. Settings → Secrets and variables → Actions → Variables:
+#      SUPABASE_URL and SUPABASE_KEY (the publishable key; it is public anyway)
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Skipped until the backend address is configured.
+    if: vars.SUPABASE_URL != ''
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: >-
+          flutter build web --release
+          --base-href "/${{ github.event.repository.name }}/"
+          --dart-define=SUPABASE_URL=${{ vars.SUPABASE_URL }}
+          --dart-define=SUPABASE_KEY=${{ vars.SUPABASE_KEY }}
+          --dart-define=IDLE_MINUTES=${{ vars.IDLE_MINUTES || '15' }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+      - id: deployment
+        uses: actions/deploy-pages@v4

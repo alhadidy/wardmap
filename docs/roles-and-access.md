@@ -11,6 +11,7 @@
 | Viewer | Read-only (e.g. students, observers) | Reads patients they are added to |
 
 Everyone belongs to exactly one hospital and sees nothing from other hospitals.
+New hospitals are added with the setup key (see [setup.md](setup.md)).
 
 ## Seeing patients
 

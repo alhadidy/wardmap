@@ -3,6 +3,21 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.0.0 (2026-10-10): Launch
+
+Added
+- Automatic logout after 15 minutes without use (adjustable); the PIN screen
+  keeps the username filled in.
+- Juniors tab for consultants and residents: each junior's current patients
+  with open tasks and whether a note was written in the last 24 hours.
+- Search patients by name or MRN, optionally including discharged patients.
+- More hospitals can be added with the setup key; each sees only its own data.
+- Web hosting on GitHub Pages, and automatic checks on every pull request.
+- Pilot checklist (docs/pilot.md).
+
+Admin
+- No database changes. Set up hosting once (docs/setup.md step 4).
+
 ## 0.3.0 (2026-10-10): Full patient record
 
 Added

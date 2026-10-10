@@ -1,5 +1,9 @@
 # Using Wardmap day to day
 
+Tabs at the bottom: **Wards**, **My patients**, **Juniors** (seniors only)
+and **Team**. Each patient's record is described in
+[patient-record.md](patient-record.md).
+
 ## Wards tab
 
 Lists every ward in your hospital. Tap a ward to open its **ward board**.
@@ -66,7 +70,25 @@ See [roles-and-access.md](roles-and-access.md) for the full rules.
 ## My patients tab
 
 Every current patient you can see across all wards: those on your care teams
-plus those followed by juniors you oversee.
+plus those followed by juniors you oversee. Search by name or MRN. Switch on
+**Include discharged** to find past patients and their records.
+
+## Juniors tab (seniors)
+
+Consultants and residents with juniors below them see each junior doctor and
+the current patients they follow, with:
+
+- the ward and bed,
+- how many tasks are still open,
+- when the last progress note was written, or **No note in 24h** in red.
+
+Tap a patient to open them.
+
+## Automatic logout
+
+After 15 minutes without a tap or key press, the app logs out and asks for
+the PIN again (username already filled in). This protects patient data on
+shared ward computers and lost phones.
 
 ## Everything is recorded
 
