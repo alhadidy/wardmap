@@ -5,8 +5,9 @@ import '../roles.dart';
 import 'login_screen.dart';
 import 'patients_tab.dart';
 import 'team_tab.dart';
+import 'wards_tab.dart';
 
-/// After login: my patients, and the team accounts I manage.
+/// After login: the wards, my patients, and the team accounts I manage.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -21,8 +22,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logOut() async {
     await Api.logOut();
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const LoginScreen()));
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   @override
@@ -35,7 +37,10 @@ class _HomeScreenState extends State<HomeScreen> {
           return Scaffold(
             body: Center(
               child: snapshot.hasError
-                  ? TextButton(onPressed: _logOut, child: const Text('Account not found. Log out'))
+                  ? TextButton(
+                      onPressed: _logOut,
+                      child: const Text('Account not found. Log out'),
+                    )
                   : const CircularProgressIndicator(),
             ),
           );
@@ -45,17 +50,29 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Text('${me.fullName} · ${me.role.label}'),
             actions: [
               IconButton(
-                  tooltip: 'Log out',
-                  onPressed: _logOut,
-                  icon: const Icon(Icons.logout)),
+                tooltip: 'Log out',
+                onPressed: _logOut,
+                icon: const Icon(Icons.logout),
+              ),
             ],
           ),
-          body: _tab == 0 ? const PatientsTab() : TeamTab(me: me),
+          body: switch (_tab) {
+            0 => WardsTab(me: me),
+            1 => PatientsTab(me: me),
+            _ => TeamTab(me: me),
+          },
           bottomNavigationBar: NavigationBar(
             selectedIndex: _tab,
             onDestinationSelected: (i) => setState(() => _tab = i),
             destinations: const [
-              NavigationDestination(icon: Icon(Icons.bed), label: 'Patients'),
+              NavigationDestination(
+                icon: Icon(Icons.meeting_room),
+                label: 'Wards',
+              ),
+              NavigationDestination(
+                icon: Icon(Icons.bed),
+                label: 'My patients',
+              ),
               NavigationDestination(icon: Icon(Icons.group), label: 'Team'),
             ],
           ),

@@ -1,29 +1,7 @@
 -- Checks the access rules and change history from the foundation migration.
 -- Run with ./run_tests.sh. Any failed check stops with an error.
 
-grant select, insert, update, delete on all tables in schema public to authenticated;
-grant execute on all functions in schema public to authenticated;
-
--- One hospital, one ward, and a small team.
-insert into hospitals (id, name) values ('00000000-0000-0000-0000-0000000000a1', 'General Hospital');
-insert into wards (id, hospital_id, name) values ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000a1', 'Ward 5');
-insert into staff (id, hospital_id, username, full_name, role) values
-  ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000a1', 'admin', 'Admin', 'admin'),
-  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-0000000000a1', 'dr.cons', 'Consultant', 'consultant'),
-  ('00000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-0000000000a1', 'dr.r6', 'Senior Resident', 'r6'),
-  ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000a1', 'dr.r3', 'Resident R3', 'r3'),
-  ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-0000000000a1', 'dr.r1', 'Resident R1', 'r1'),
-  ('00000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000a1', 'dr.rot', 'Rotator', 'rotator');
-
-create function as_user(u text) returns void language sql as $$
-  select set_config('request.jwt.claim.sub', u, false);
-$$;
-create function check_that(ok boolean, what text) returns void language plpgsql as $$
-begin
-  if not coalesce(ok, false) then raise exception 'FAILED: %', what; end if;
-  raise notice 'ok: %', what;
-end $$;
-grant execute on function check_that, as_user to authenticated;
+-- Uses the hospital and team from test_helpers.sql.
 
 set role authenticated;
 

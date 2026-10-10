@@ -3,8 +3,12 @@ import 'package:wardmap/roles.dart';
 
 void main() {
   test('residents can only create accounts junior to them', () {
-    expect(StaffRole.r3.canCreate,
-        [StaffRole.r2, StaffRole.r1, StaffRole.rotator, StaffRole.viewer]);
+    expect(StaffRole.r3.canCreate, [
+      StaffRole.r2,
+      StaffRole.r1,
+      StaffRole.rotator,
+      StaffRole.viewer,
+    ]);
   });
 
   test('admins can create any role', () {
