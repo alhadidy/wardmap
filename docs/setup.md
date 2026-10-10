@@ -39,9 +39,12 @@ curl -X POST https://<project-ref>.supabase.co/functions/v1/manage-staff \
        "username":"admin","full_name":"Ward Admin","pin":"123456"}'
 ```
 
-This only works while there are no accounts. Log in as that admin and create
-everyone else from the Team tab. Wards and beds are added by the admin (the
-screens for that come in step 2; until then use the Supabase table editor).
+This only works while there are no accounts. Log in as that admin, then:
+
+1. **Wards tab → New ward** for each ward.
+2. Open each ward and use **+** to add its beds.
+3. **Team tab → New account** for consultants and senior residents. They can
+   then create accounts for their own juniors.
 
 ## 3. Run the app
 

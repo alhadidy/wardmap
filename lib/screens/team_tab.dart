@@ -30,7 +30,8 @@ class _TeamTabState extends State<TeamTab> {
       _reload();
     } catch (e) {
       messenger.showSnackBar(
-          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))));
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+      );
     }
   }
 
@@ -70,26 +71,33 @@ class _TeamTabState extends State<TeamTab> {
             children: [
               for (final s in staff)
                 ListTile(
-                  leading: CircleAvatar(child: Text(s.role.label)),
+                  leading: CircleAvatar(child: Text(s.role.short)),
                   title: Text(s.fullName),
                   subtitle: Text(
-                      '@${s.username}${s.isActive ? '' : ' · deactivated'}'),
+                    '@${s.username}${s.isActive ? '' : ' · deactivated'}',
+                  ),
                   enabled: s.isActive,
                   trailing: !_canManage(s)
                       ? null
                       : PopupMenuButton<String>(
                           onSelected: (choice) => switch (choice) {
                             'pin' => _resetPin(s),
-                            _ => _run(() => Api.setActive(s.id, !s.isActive),
-                                s.isActive ? 'Deactivated' : 'Reactivated'),
+                            _ => _run(
+                              () => Api.setActive(s.id, !s.isActive),
+                              s.isActive ? 'Deactivated' : 'Reactivated',
+                            ),
                           },
                           itemBuilder: (_) => [
                             const PopupMenuItem(
-                                value: 'pin', child: Text('Reset PIN')),
+                              value: 'pin',
+                              child: Text('Reset PIN'),
+                            ),
                             PopupMenuItem(
-                                value: 'active',
-                                child: Text(
-                                    s.isActive ? 'Deactivate' : 'Reactivate')),
+                              value: 'active',
+                              child: Text(
+                                s.isActive ? 'Deactivate' : 'Reactivate',
+                              ),
+                            ),
                           ],
                         ),
                 ),
@@ -114,11 +122,13 @@ Future<String?> _askForPin(BuildContext context, String title) {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
-            onPressed: () => Navigator.pop(context, pin.text),
-            child: const Text('Save')),
+          onPressed: () => Navigator.pop(context, pin.text),
+          child: const Text('Save'),
+        ),
       ],
     ),
   );
@@ -148,10 +158,11 @@ class _AccountDialogState extends State<_AccountDialog> {
     });
     try {
       await Api.createAccount(
-          username: _username.text,
-          fullName: _name.text,
-          role: _role,
-          pin: _pin.text);
+        username: _username.text,
+        fullName: _name.text,
+        role: _role,
+        pin: _pin.text,
+      );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() {
@@ -169,12 +180,14 @@ class _AccountDialogState extends State<_AccountDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextField(
-              controller: _name,
-              decoration: const InputDecoration(labelText: 'Full name')),
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Full name'),
+          ),
           TextField(
-              controller: _username,
-              autocorrect: false,
-              decoration: const InputDecoration(labelText: 'Username')),
+            controller: _username,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Username'),
+          ),
           DropdownButtonFormField<StaffRole>(
             initialValue: _role,
             decoration: const InputDecoration(labelText: 'Role'),
@@ -185,24 +198,29 @@ class _AccountDialogState extends State<_AccountDialog> {
             onChanged: (r) => setState(() => _role = r!),
           ),
           TextField(
-              controller: _pin,
-              keyboardType: TextInputType.number,
-              decoration:
-                  const InputDecoration(labelText: 'PIN (6-12 digits)')),
+            controller: _pin,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'PIN (6-12 digits)'),
+          ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: Text(_error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
         ],
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
-            onPressed: _busy ? null : _save, child: const Text('Create')),
+          onPressed: _busy ? null : _save,
+          child: const Text('Create'),
+        ),
       ],
     );
   }

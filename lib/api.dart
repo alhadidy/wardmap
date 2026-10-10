@@ -28,7 +28,10 @@ class Api {
   }
 
   static Future<List<Staff>> colleagues() async {
-    final rows = await _db.from('staff').select().order('role').order('full_name');
+    final rows = await _db
+        .from('staff')
+        .select()
+        .order('full_name', ascending: true);
     return rows.map(Staff.fromRow).toList();
   }
 
@@ -37,37 +40,214 @@ class Api {
   static Future<List<Map<String, dynamic>>> currentPatients() async {
     return await _db
         .from('patients')
-        .select('id, mrn, full_name, admitted_at, wards(name), beds(label)')
+        .select(
+          'id, mrn, full_name, admitted_at, ward_id, wards(name), beds(label)',
+        )
         .isFilter('discharged_at', null)
-        .order('admitted_at');
+        .order('admitted_at', ascending: true);
   }
+
+  /// The database skips rows I'm not allowed to change instead of failing,
+  /// so updates and deletes ask for the changed rows back and check.
+  static Future<void> _mustChange(
+    PostgrestTransformBuilder<List<Map<String, dynamic>>> query,
+  ) async {
+    final changed = await query;
+    if (changed.isEmpty) {
+      throw Exception('You don\'t have permission to do that.');
+    }
+  }
+
+  // ---- Wards and beds ----
+
+  static Future<List<Map<String, dynamic>>> wards() =>
+      _db.from('wards').select('id, name').order('name', ascending: true);
+
+  /// Beds in a ward, in natural order (Bed 2 before Bed 10).
+  static Future<List<Map<String, dynamic>>> beds(String wardId) async {
+    final beds = await _db
+        .from('beds')
+        .select('id, label')
+        .eq('ward_id', wardId);
+    int number(Map b) => int.tryParse(b['label']) ?? 1 << 30;
+    return beds..sort((a, b) {
+      final byNumber = number(a).compareTo(number(b));
+      return byNumber != 0
+          ? byNumber
+          : (a['label'] as String).compareTo(b['label']);
+    });
+  }
+
+  /// Ids of taken beds in a ward, including beds whose patient I can't see.
+  static Future<Set<String>> occupiedBeds(String wardId) async {
+    final rows = await _db.rpc(
+      'ward_occupied_beds',
+      params: {'p_ward_id': wardId},
+    );
+    return {for (final id in rows as List) id as String};
+  }
+
+  /// Admin only (the database refuses anyone else).
+  static Future<void> addWard(String hospitalId, String name) => _db
+      .from('wards')
+      .insert({'hospital_id': hospitalId, 'name': name.trim()});
+
+  static Future<void> renameWard(String wardId, String name) => _mustChange(
+    _db.from('wards').update({'name': name.trim()}).eq('id', wardId).select(),
+  );
+
+  static Future<void> deleteWard(String wardId) =>
+      _mustChange(_db.from('wards').delete().eq('id', wardId).select());
+
+  static Future<void> addBed(String hospitalId, String wardId, String label) =>
+      _db.from('beds').insert({
+        'hospital_id': hospitalId,
+        'ward_id': wardId,
+        'label': label.trim(),
+      });
+
+  static Future<void> deleteBed(String bedId) =>
+      _mustChange(_db.from('beds').delete().eq('id', bedId).select());
+
+  // ---- Patients ----
+
+  /// Current patients in one ward that I can see.
+  static Future<List<Map<String, dynamic>>> wardPatients(String wardId) => _db
+      .from('patients')
+      .select('id, mrn, full_name, bed_id')
+      .eq('ward_id', wardId)
+      .isFilter('discharged_at', null);
+
+  static Future<Map<String, dynamic>> patient(String id) => _db
+      .from('patients')
+      .select('*, wards(name), beds(label)')
+      .eq('id', id)
+      .single();
+
+  /// Puts the patient in a ward (and bed), and me on their care team.
+  static Future<String> admitPatient({
+    required String wardId,
+    String? bedId,
+    required String mrn,
+    required String fullName,
+    DateTime? dateOfBirth,
+    String? sex,
+    String? ownerId,
+  }) async {
+    final id = await _db.rpc(
+      'admit_patient',
+      params: {
+        'p_ward_id': wardId,
+        'p_bed_id': bedId,
+        'p_mrn': mrn.trim(),
+        'p_full_name': fullName.trim(),
+        'p_date_of_birth': dateOfBirth?.toIso8601String().substring(0, 10),
+        'p_sex': sex,
+        'p_owner_id': ownerId,
+      },
+    );
+    return id as String;
+  }
+
+  static Future<void> transferPatient(
+    String id,
+    String wardId,
+    String? bedId,
+  ) => _mustChange(
+    _db
+        .from('patients')
+        .update({'ward_id': wardId, 'bed_id': bedId})
+        .eq('id', id)
+        .select(),
+  );
+
+  /// Discharging also frees the bed.
+  static Future<void> dischargePatient(String id) => _mustChange(
+    _db
+        .from('patients')
+        .update({
+          'discharged_at': DateTime.now().toUtc().toIso8601String(),
+          'bed_id': null,
+        })
+        .eq('id', id)
+        .select(),
+  );
+
+  // ---- Care teams ----
+
+  static Future<List<Map<String, dynamic>>> careTeam(String patientId) => _db
+      .from('patient_team')
+      .select('staff_id, access')
+      .eq('patient_id', patientId);
+
+  static Future<void> addToCareTeam(
+    String hospitalId,
+    String patientId,
+    String staffId,
+    String access,
+  ) => _db.from('patient_team').insert({
+    'hospital_id': hospitalId,
+    'patient_id': patientId,
+    'staff_id': staffId,
+    'access': access,
+    'added_by': _db.auth.currentUser!.id,
+  });
+
+  static Future<void> changeCareTeamAccess(
+    String patientId,
+    String staffId,
+    String access,
+  ) => _mustChange(
+    _db
+        .from('patient_team')
+        .update({'access': access})
+        .eq('patient_id', patientId)
+        .eq('staff_id', staffId)
+        .select(),
+  );
+
+  static Future<void> removeFromCareTeam(String patientId, String staffId) =>
+      _mustChange(
+        _db
+            .from('patient_team')
+            .delete()
+            .eq('patient_id', patientId)
+            .eq('staff_id', staffId)
+            .select(),
+      );
+
+  // ---- Accounts ----
 
   static Future<void> createAccount({
     required String username,
     required String fullName,
     required StaffRole role,
     required String pin,
-  }) =>
-      _manageStaff({
-        'action': 'create',
-        'username': username.trim().toLowerCase(),
-        'full_name': fullName.trim(),
-        'role': role.name,
-        'pin': pin,
-      });
+  }) => _manageStaff({
+    'action': 'create',
+    'username': username.trim().toLowerCase(),
+    'full_name': fullName.trim(),
+    'role': role.name,
+    'pin': pin,
+  });
 
   static Future<void> resetPin(String staffId, String pin) =>
       _manageStaff({'action': 'reset_pin', 'staff_id': staffId, 'pin': pin});
 
-  static Future<void> setActive(String staffId, bool active) => _manageStaff(
-      {'action': 'set_active', 'staff_id': staffId, 'active': active});
+  static Future<void> setActive(String staffId, bool active) => _manageStaff({
+    'action': 'set_active',
+    'staff_id': staffId,
+    'active': active,
+  });
 
   static Future<void> _manageStaff(Map<String, dynamic> body) async {
     try {
       await _db.functions.invoke('manage-staff', body: body);
     } on FunctionException catch (e) {
       final details = e.details;
-      throw Exception(details is Map ? details['error'] : 'Something went wrong');
+      throw Exception(
+        details is Map ? details['error'] : 'Something went wrong',
+      );
     }
   }
 }

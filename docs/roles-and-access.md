@@ -45,6 +45,15 @@ When a patient is admitted, the admitting doctor joins the team
 automatically (as owner if a consultant, otherwise edit) and can name the
 responsible consultant as owner.
 
+## Wards, beds, admitting and discharge
+
+- Admins add, rename and remove wards and beds. A ward or bed still in use
+  can't be removed.
+- Anyone except viewers can admit a patient.
+- Anyone who can edit a patient can transfer them (ward or bed) and discharge them.
+- The ward board shows every bed as free or taken. A taken bed whose patient
+  you can't see shows as "Occupied", without the name.
+
 ## Accounts
 
 There is no self-signup. You create, reset the PIN of, and deactivate
