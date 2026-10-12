@@ -6,6 +6,7 @@ import '../record_sections.dart';
 import '../roles.dart';
 import '../theme.dart';
 import '../ui.dart';
+import 'result_files_view.dart';
 
 /// One section of the patient record (problems, notes, vitals…) as a list,
 /// newest first. Editors add entries with the button and tap one to change
@@ -36,9 +37,14 @@ class _RecordSectionViewState extends State<RecordSectionView>
 
   RecordSection get _section => widget.section;
   bool get _isTasks => _section.table == 'tasks';
+  bool get _isResults => _section.table == 'results';
 
-  Future<List<Map<String, dynamic>>> _load() =>
-      Api.records(_section.table, widget.patientId, _section.orderBy);
+  Future<List<Map<String, dynamic>>> _load() => Api.records(
+    _section.table,
+    widget.patientId,
+    _section.orderBy,
+    _section.columns,
+  );
 
   void _reload() => setState(() => _rows = _load());
 
@@ -71,6 +77,40 @@ class _RecordSectionViewState extends State<RecordSectionView>
       result is _Delete ? 'Deleted' : 'Saved',
     );
     if (ok) _reload();
+  }
+
+  /// Results only: the images and videos button at the end of each entry.
+  Widget? _filesButton(Map<String, dynamic> row) {
+    final count = ResultFilesSheet.countOn(row);
+    if (count == 0 && !widget.canEdit) return null;
+    Future<void> open() async {
+      await showDialog<void>(
+        context: context,
+        builder: (_) => ResultFilesSheet(
+          result: row,
+          me: widget.me,
+          canEdit: widget.canEdit,
+          staff: widget.staff,
+        ),
+      );
+      _reload();
+    }
+
+    if (count == 0) {
+      return IconButton(
+        tooltip: 'Add images or videos',
+        onPressed: open,
+        icon: const Icon(Icons.add_photo_alternate_outlined),
+      );
+    }
+    return Tooltip(
+      message: 'Images and videos',
+      child: TextButton.icon(
+        onPressed: open,
+        icon: const Icon(Icons.photo_library),
+        label: Text('$count', semanticsLabel: '$count images and videos'),
+      ),
+    );
   }
 
   @override
@@ -151,6 +191,7 @@ class _RecordSectionViewState extends State<RecordSectionView>
                           : null,
                     ),
                     subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                    trailing: _isResults ? _filesButton(row) : null,
                     isThreeLine: _section.table == 'notes',
                     onTap: widget.canEdit ? () => _openForm(row) : null,
                   ),
