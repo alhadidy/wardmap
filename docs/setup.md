@@ -30,6 +30,17 @@ Wardmap has two parts:
 
 ## 2. Create a hospital and its admin
 
+**Easiest, from GitHub (no terminal):**
+
+1. **Settings → Secrets and variables → Actions → Secrets**, add
+   `SETUP_KEY` (the same value as in Supabase) and `ADMIN_PIN` (the new
+   admin's PIN, 6 to 12 digits).
+2. **Actions → Add hospital → Run workflow**, fill in the hospital name,
+   username and full name, and run it.
+3. A green run means the account exists; a red one shows Supabase's answer.
+
+**Or from a terminal:**
+
 Run this for the first hospital, and again for each hospital you add later
 (replace the values):
 
