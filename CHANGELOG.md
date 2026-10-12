@@ -3,6 +3,17 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.0.3 (2026-10-12): Fix creating accounts from the web app
+
+Fixed
+- Creating accounts, resetting PINs and deactivating staff failed with
+  "Something went wrong" in the web app. The browser blocked the request
+  because the account function didn't allow one of the headers the app sends.
+- Connection problems now say "Could not reach the server" instead.
+
+Admin: nothing to do; the "Deploy backend" job redeploys the function when
+this is merged.
+
 ## 1.0.2 (2026-10-12): Backend updates itself from GitHub
 
 Added
