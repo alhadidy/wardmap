@@ -3,6 +3,15 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.0.3 (2026-10-12): Faster map resizing
+
+Fixed
+- Changing a ward map's rows or columns now shows straight away. Before, each
+  tap waited for the save and a full reload of the ward, so taps lagged and
+  quick taps could be lost. Several quick taps are now saved together.
+- The ward screen loads its beds, patients and labels at the same time, so it
+  opens and refreshes faster.
+
 ## 1.0.2 (2026-10-12): Backend updates itself from GitHub
 
 Added

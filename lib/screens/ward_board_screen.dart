@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../api.dart';
@@ -90,17 +92,42 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
   bool _editing = false;
   _Picked? _picked;
 
+  /// Map size changes show at once and are saved a moment after the last
+  /// tap, so a run of taps costs one save instead of one per tap.
+  Timer? _resizeTimer;
+  (int, int)? _unsavedSize;
+  Future<void>? _resizeSaving;
+
   static const _minCellWidth = 72.0;
   static const _maxCellWidth = 120.0;
   static const _cellHeight = 72.0;
 
-  Future<_WardBoard> _load() async => _WardBoard(
-    await Api.ward(_wardId),
-    await Api.beds(_wardId),
-    await Api.occupiedBeds(_wardId),
-    await Api.wardPatients(_wardId),
-    await Api.landmarks(_wardId),
-  );
+  Future<_WardBoard> _load() async {
+    // Fetched side by side, not one after another.
+    final ward = Api.ward(_wardId);
+    final beds = Api.beds(_wardId);
+    final occupied = Api.occupiedBeds(_wardId);
+    final patients = Api.wardPatients(_wardId);
+    final landmarks = Api.landmarks(_wardId);
+    return _WardBoard(
+      await ward,
+      await beds,
+      await occupied,
+      await patients,
+      await landmarks,
+    );
+  }
+
+  @override
+  void dispose() {
+    _resizeTimer?.cancel();
+    final size = _unsavedSize;
+    if (size != null) {
+      // Leaving mid-change: save it anyway. Nowhere to show an error now.
+      Api.setMapSize(_wardId, size.$1, size.$2).ignore();
+    }
+    super.dispose();
+  }
 
   void _reload() => setState(() {
     _picked = null;
@@ -113,6 +140,8 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
   }
 
   Future<void> _do(Future<void> Function() action, String done) async {
+    await _flushSize();
+    if (!mounted) return;
     if (await runAction(context, action, done)) _reload();
   }
 
@@ -135,13 +164,47 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
 
   // ---- Map editing (admins) ----
 
-  Future<void> _resize(_WardBoard board, int rows, int columns) async {
+  void _resize(_WardBoard board, int rows, int columns) {
     if (rows < board.rows && !board.rowIsEmpty(board.rows - 1) ||
         columns < board.columns && !board.columnIsEmpty(board.columns - 1)) {
       showMessage(context, 'Move things out of the last row or column first');
       return;
     }
-    await _do(() => Api.setMapSize(_wardId, rows, columns), 'Map resized');
+    setState(() {
+      board.ward['map_rows'] = rows;
+      board.ward['map_columns'] = columns;
+    });
+    _unsavedSize = (rows, columns);
+    _resizeTimer?.cancel();
+    _resizeTimer = Timer(const Duration(milliseconds: 600), _saveSize);
+  }
+
+  /// Saves the size now if a save is waiting, and finishes any save under
+  /// way, so a reload never brings back the old size.
+  Future<void> _flushSize() async {
+    _resizeTimer?.cancel();
+    _saveSize();
+    await _resizeSaving;
+  }
+
+  void _saveSize() {
+    final size = _unsavedSize;
+    if (size == null) return;
+    _unsavedSize = null;
+    final messenger = ScaffoldMessenger.of(context);
+    final saving = _resizeSaving = Api.setMapSize(_wardId, size.$1, size.$2)
+        .then(
+          (_) => messenger.showSnackBar(
+            const SnackBar(content: Text('Map resized')),
+          ),
+          onError: (Object e) {
+            messenger.showSnackBar(SnackBar(content: Text(errorText(e))));
+            if (mounted) _reload(); // Show the size that is really saved.
+          },
+        );
+    saving.whenComplete(() {
+      if (_resizeSaving == saving) _resizeSaving = null;
+    });
   }
 
   Future<void> _tapEmptyCell(_WardBoard board, int row, int column) async {
@@ -224,6 +287,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
             IconButton(
               tooltip: _editing ? 'Done editing map' : 'Edit map',
               onPressed: () => setState(() {
+                if (_editing) _flushSize();
                 _editing = !_editing;
                 _picked = null;
               }),
@@ -241,6 +305,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
       bottomNavigationBar: _editing ? _editBar() : null,
       body: RefreshIndicator(
         onRefresh: () async {
+          await _flushSize();
           _reload();
           await _board;
         },
