@@ -6,12 +6,36 @@ and **Team**. Each patient's record is described in
 
 ## Wards tab
 
-Lists every ward in your hospital. Tap a ward to open its **ward board**.
-Admins also see **New ward**, and a menu on each ward to rename or remove it.
+Lists every ward in your hospital. Tap a ward to open it. Admins also see
+**New ward**, and a menu on each ward to rename or remove it.
+
+## Rooms
+
+A ward has one or more rooms, and each room has its beds.
+
+- **A ward with one room** opens straight on its beds (the ward board below);
+  the room is never shown. Every ward starts this way.
+- **A ward with several rooms** opens on its list of rooms, each with how many
+  beds it has and how many are free. Tap a room to open its board. Patients
+  in the ward without a bed are listed here, under **Without a bed**.
+
+Admins manage rooms:
+
+- In a one-room ward, tap **Rooms** (the door icon) on the ward board, then
+  **+** to add a second room.
+- On the rooms list, **+** adds a room, and the menu on each room renames it
+  or removes it. Only a room with no beds can be removed, and the last room
+  can't be.
+- To move a bed to another room, open **Edit map**, tap the bed, then
+  **Move to room**. It arrives off the new room's map, ready to place.
+
+Bed names must still be different within a ward (two rooms can't both have a
+Bed 1). Where a list of beds covers several rooms, such as when admitting or
+transferring, each bed shows its room: *Bed 3 · Side room*.
 
 ## Ward board
 
-Shows every bed in the ward:
+Shows every bed in the room (for a one-room ward, the whole ward):
 
 | Bed shows | Meaning | Tap it to |
 |---|---|---|
@@ -19,13 +43,15 @@ Shows every bed in the ward:
 | Occupied | Taken by a patient you can't see | Nothing |
 | Free | Empty | Admit a patient into it |
 
-Patients in the ward without a bed are listed under **Without a bed**.
-Admins add beds with **+** and remove an empty bed with a long press.
+In a one-room ward, patients without a bed are listed under **Without a
+bed**. Admins add beds to the room with **+** and remove an empty bed with a
+long press.
 
 ### Ward map
 
-Admins can draw each ward like a floor plan so beds appear where they really
-are. Tap **Edit map** (the pin icon) on the ward board:
+Admins can draw each room like a floor plan so beds appear where they really
+are. Each room has its own map. Tap **Edit map** (the pin icon) on the ward
+board:
 
 - Set the grid size with the **rows** and **columns** buttons.
 - Tap an empty cell to put an existing bed there, add a new bed there, or add

@@ -3,7 +3,7 @@
 A simple app for managing patients on hospital wards. Works in the browser and
 on Android and iOS from one Flutter codebase.
 
-- Hospitals have wards, wards have beds, beds have patients.
+- Hospitals have wards, wards have rooms, rooms have beds, beds have patients.
 - Each patient has a care team: a responsible consultant plus the residents
   following them up.
 - Seniors oversee juniors: R6 down to R1, then rotators.

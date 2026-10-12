@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../roles.dart';
 import '../ui.dart';
-import 'ward_board_screen.dart';
+import 'rooms_screen.dart';
 
 /// All wards in my hospital. Admins add, rename and remove wards here.
 class WardsTab extends StatefulWidget {
@@ -101,11 +101,7 @@ class _WardsTabState extends State<WardsTab> {
                   leading: const Icon(Icons.meeting_room),
                   title: Text(w['name']),
                   onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => WardBoardScreen(me: widget.me, ward: w),
-                      ),
-                    );
+                    await openWard(context, widget.me, w);
                     _reload();
                   },
                   trailing: !widget.me.isAdmin
