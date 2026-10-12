@@ -98,3 +98,16 @@ Future<bool> confirm(BuildContext context, String question, String yes) async {
   );
   return ok == true;
 }
+
+/// "Bed 3", or "Bed 3 · Side room" when [beds] span more than one room
+/// (beds come from Api.beds).
+String bedName(Map<String, dynamic> bed, List<Map<String, dynamic>> beds) {
+  final severalRooms = beds.map((b) => b['room_id']).toSet().length > 1;
+  final room = bed['rooms']?['name'];
+  return severalRooms && room != null
+      ? 'Bed ${bed['label']} · $room'
+      : 'Bed ${bed['label']}';
+}
+
+/// "1 bed", "3 beds".
+String count(int n, String thing) => '$n $thing${n == 1 ? '' : 's'}';

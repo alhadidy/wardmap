@@ -8,7 +8,7 @@ insert into beds (id, hospital_id, ward_id, label) values
 set role authenticated;
 
 select as_user('00000000-0000-0000-0000-000000000001');
-update wards set map_rows = 3, map_columns = 5;
+update rooms set map_rows = 3, map_columns = 5;
 update beds set map_row = 0, map_column = 0 where label = '1';
 select check_that((select map_column from beds where label = '1') = 0, 'Admin places a bed on the map');
 select check_refused($$update beds set map_row = 0, map_column = 0 where label = '2'$$, 'Two beds cannot share a cell');

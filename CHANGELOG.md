@@ -3,7 +3,7 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
-## 1.2.0 (2026-10-12): Images and videos on results
+## 1.3.0 (2026-10-12): Images and videos on results
 
 Added
 - Lab and imaging results can have images and videos: take a photo, record
@@ -18,6 +18,24 @@ Fixed
 Admin: nothing to do; the "Deploy backend" job creates the private
 `record-files` storage bucket and its access rules when this is merged.
 
+## 1.2.0 (2026-10-12): Rooms
+
+Added
+- Wards now have rooms, and beds belong to a room. A ward with one room opens
+  straight on its beds as before; a ward with several rooms opens on a list
+  of its rooms showing free beds in each.
+- Admins add, rename and remove rooms, and move a bed to another room from
+  Edit map. Each room has its own map.
+- When admitting or transferring, beds show their room if the ward has
+  several (e.g. "Bed 3 · Side room").
+
+Changed
+- Every existing ward becomes a ward with one room ("Room 1") holding all its
+  beds and its map, so nothing looks different until a second room is added.
+
+Admin: nothing to do; the "Deploy backend" job moves existing beds into
+rooms when this is merged.
+
 ## 1.1.0 (2026-10-12): Ward types
 
 Added
@@ -31,6 +49,7 @@ Changed
 
 Admin: nothing to do; the "Deploy backend" job adds the new database column
 when this is merged.
+
 ## 1.0.3 (2026-10-12): Fix creating accounts from the web app
 
 Fixed
