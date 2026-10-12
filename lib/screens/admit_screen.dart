@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 /// Admit a patient to a ward. Whoever admits joins the care team; they can
@@ -82,81 +84,99 @@ class _AdmitScreenState extends State<AdmitScreen> {
       body: FutureBuilder(
         future: _choices,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snapshot.hasData) return const Loading();
           final (freeBeds, consultants) = snapshot.data!;
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              TextField(
-                controller: _mrn,
-                decoration: const InputDecoration(labelText: 'MRN'),
+          return Readable(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(
+                Space.lg,
+                Space.sm,
+                Space.lg,
+                Space.xl,
               ),
-              TextField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Full name'),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Date of birth'),
-                subtitle: Text(
-                  _dateOfBirth == null
-                      ? 'Not set'
-                      : _dateOfBirth!.toIso8601String().substring(0, 10),
-                ),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _pickDateOfBirth,
-              ),
-              DropdownButtonFormField<String?>(
-                initialValue: _sex,
-                decoration: const InputDecoration(labelText: 'Sex'),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Not set')),
-                  DropdownMenuItem(value: 'male', child: Text('Male')),
-                  DropdownMenuItem(value: 'female', child: Text('Female')),
-                ],
-                onChanged: (v) => setState(() => _sex = v),
-              ),
-              DropdownButtonFormField<String?>(
-                initialValue: freeBeds.any((b) => b['id'] == _bedId)
-                    ? _bedId
-                    : null,
-                decoration: const InputDecoration(labelText: 'Bed'),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('No bed yet'),
+              children: [
+                const SectionHeader('Patient'),
+                _group([
+                  TextField(
+                    controller: _mrn,
+                    decoration: const InputDecoration(labelText: 'MRN'),
                   ),
-                  for (final b in freeBeds)
-                    DropdownMenuItem(
-                      value: b['id'] as String,
-                      child: Text(bedName(b, freeBeds)),
+                  TextField(
+                    controller: _name,
+                    decoration: const InputDecoration(labelText: 'Full name'),
+                  ),
+                  PickerField(
+                    label: 'Date of birth',
+                    value: _dateOfBirth?.toIso8601String().substring(0, 10),
+                    icon: Icons.calendar_today_outlined,
+                    onTap: _pickDateOfBirth,
+                  ),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _sex,
+                    decoration: const InputDecoration(labelText: 'Sex'),
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('Not set')),
+                      DropdownMenuItem(value: 'male', child: Text('Male')),
+                      DropdownMenuItem(value: 'female', child: Text('Female')),
+                    ],
+                    onChanged: (v) => setState(() => _sex = v),
+                  ),
+                ]),
+                const SectionHeader('Placement and team'),
+                _group([
+                  DropdownButtonFormField<String?>(
+                    initialValue: freeBeds.any((b) => b['id'] == _bedId)
+                        ? _bedId
+                        : null,
+                    decoration: const InputDecoration(labelText: 'Bed'),
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('No bed yet'),
+                      ),
+                      for (final b in freeBeds)
+                        DropdownMenuItem(
+                          value: b['id'] as String,
+                          child: Text(bedName(b, freeBeds)),
+                        ),
+                    ],
+                    onChanged: (v) => setState(() => _bedId = v),
+                  ),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _ownerId,
+                    decoration: const InputDecoration(
+                      labelText: 'Responsible consultant',
                     ),
-                ],
-                onChanged: (v) => setState(() => _bedId = v),
-              ),
-              DropdownButtonFormField<String?>(
-                initialValue: _ownerId,
-                decoration: const InputDecoration(
-                  labelText: 'Responsible consultant',
+                    items: [
+                      const DropdownMenuItem(
+                        value: null,
+                        child: Text('Not set'),
+                      ),
+                      for (final c in consultants)
+                        DropdownMenuItem(value: c.id, child: Text(c.fullName)),
+                    ],
+                    onChanged: (v) => setState(() => _ownerId = v),
+                  ),
+                ]),
+                const SizedBox(height: Space.xl),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _admit,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: Text(_busy ? 'Admitting…' : 'Admit'),
                 ),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Not set')),
-                  for (final c in consultants)
-                    DropdownMenuItem(value: c.id, child: Text(c.fullName)),
-                ],
-                onChanged: (v) => setState(() => _ownerId = v),
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _busy ? null : _admit,
-                child: Text(_busy ? 'Admitting…' : 'Admit'),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
     );
   }
+
+  /// Fields in a card, evenly spaced.
+  Widget _group(List<Widget> fields) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(Space.lg),
+      child: Column(spacing: Space.md, children: fields),
+    ),
+  );
 }

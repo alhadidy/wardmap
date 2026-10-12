@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../record_sections.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 /// One section of the patient record (problems, notes, vitals…) as a list,
@@ -92,62 +94,66 @@ class _RecordSectionViewState extends State<RecordSectionView>
           future: _rows,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              return Center(child: Text(errorText(snapshot.error!)));
+              return EmptyState(
+                icon: Icons.cloud_off,
+                title: 'Could not load ${_section.title.toLowerCase()}',
+                message: errorText(snapshot.error!),
+              );
             }
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+            if (!snapshot.hasData) return const Loading();
             final rows = snapshot.data!;
             if (rows.isEmpty) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Text(
-                      'No ${_section.title.toLowerCase()} yet',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
+              return EmptyState(
+                icon: Icons.inbox_outlined,
+                title: 'No ${_section.title.toLowerCase()} yet',
+                message: widget.canEdit ? 'Add one with the + button.' : null,
               );
             }
             return ListView.separated(
-              padding: const EdgeInsets.only(bottom: 72),
+              padding: const EdgeInsets.fromLTRB(
+                Space.lg,
+                Space.lg,
+                Space.lg,
+                88,
+              ),
               itemCount: rows.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const SizedBox(height: Space.sm),
               itemBuilder: (context, i) {
                 final row = rows[i];
                 final (title, subtitle) = _section.summary(row, who);
                 final done = _isTasks && row['done_at'] != null;
-                return ListTile(
-                  leading: _isTasks
-                      ? Checkbox(
-                          value: done,
-                          onChanged: widget.canEdit
-                              ? (v) async {
-                                  final nowDone = v ?? false;
-                                  if (await runAction(
-                                    context,
-                                    () => Api.setTaskDone(row['id'], nowDone),
-                                    nowDone ? 'Done' : 'Reopened',
-                                  )) {
-                                    _reload();
+                return Card(
+                  child: ListTile(
+                    leading: _isTasks
+                        ? Checkbox(
+                            value: done,
+                            onChanged: widget.canEdit
+                                ? (v) async {
+                                    final nowDone = v ?? false;
+                                    if (await runAction(
+                                      context,
+                                      () => Api.setTaskDone(row['id'], nowDone),
+                                      nowDone ? 'Done' : 'Reopened',
+                                    )) {
+                                      _reload();
+                                    }
                                   }
-                                }
-                              : null,
-                        )
-                      : null,
-                  title: Text(
-                    title,
-                    style: done
-                        ? const TextStyle(
-                            decoration: TextDecoration.lineThrough,
+                                : null,
                           )
                         : null,
+                    title: Text(
+                      title,
+                      style: done
+                          ? TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: context.colors.onSurfaceVariant,
+                            )
+                          : null,
+                    ),
+                    subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                    isThreeLine: _section.table == 'notes',
+                    onTap: widget.canEdit ? () => _openForm(row) : null,
                   ),
-                  subtitle: subtitle.isEmpty ? null : Text(subtitle),
-                  isThreeLine: _section.table == 'notes',
-                  onTap: widget.canEdit ? () => _openForm(row) : null,
                 );
               },
             );
@@ -292,25 +298,14 @@ class _RecordFormState extends State<_RecordForm> {
         ],
         onChanged: (v) => setState(() => _values[f.key] = v),
       ),
-      FieldKind.dateTime => ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(label),
-        subtitle: Text(
-          _values[f.key] == null ? 'Not set' : when(_values[f.key]),
-        ),
+      FieldKind.dateTime => PickerField(
+        label: label,
+        value: _values[f.key] == null ? null : when(_values[f.key]),
+        icon: Icons.schedule,
         onTap: () => _pickDateTime(f),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_values[f.key] != null && !f.required)
-              IconButton(
-                tooltip: 'Clear ${f.label}',
-                onPressed: () => setState(() => _values[f.key] = null),
-                icon: const Icon(Icons.clear),
-              ),
-            const Icon(Icons.schedule),
-          ],
-        ),
+        onClear: _values[f.key] != null && !f.required
+            ? () => setState(() => _values[f.key] = null)
+            : null,
       ),
     };
   }
@@ -325,18 +320,11 @@ class _RecordFormState extends State<_RecordForm> {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            spacing: Space.md,
             children: [
+              const SizedBox(height: Space.xs),
               for (final f in widget.section.fields) _field(f),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ),
+              if (_error != null) Notice(_error!, tone: Tone.danger),
             ],
           ),
         ),

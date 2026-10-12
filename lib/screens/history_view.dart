@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../record_sections.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 
 /// Everything that ever happened to a patient, newest first: who, when, and
@@ -47,28 +49,70 @@ class _HistoryViewState extends State<HistoryView> {
         future: Future.wait([_entries, _places]),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(errorText(snapshot.error!)));
+            return EmptyState(
+              icon: Icons.cloud_off,
+              title: 'Could not load the history',
+              message: errorText(snapshot.error!),
+            );
           }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snapshot.hasData) return const Loading();
           final entries = snapshot.data![0] as List<Map<String, dynamic>>;
           _placeNames = snapshot.data![1] as Map<String, String>;
           return ListView.separated(
+            padding: const EdgeInsets.all(Space.lg),
             itemCount: entries.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
+            separatorBuilder: (_, _) => const SizedBox(height: Space.sm),
             itemBuilder: (context, i) {
               final e = entries[i];
-              final verb = switch (e['action']) {
-                'insert' => 'added to',
-                'update' => 'changed',
-                _ => 'deleted from',
+              final (verb, icon, tone) = switch (e['action']) {
+                'insert' => ('added to', Icons.add, Tone.success),
+                'update' => ('changed', Icons.edit_outlined, Tone.info),
+                _ => ('deleted from', Icons.delete_outline, Tone.danger),
               };
-              return ListTile(
-                title: Text(
-                  '${who(e['actor_id'])} $verb ${sectionName(e['table_name'])}',
+              final changes = _changes(e, who);
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(Space.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: context.tones.background(tone),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          icon,
+                          size: 18,
+                          color: context.tones.foreground(tone),
+                        ),
+                      ),
+                      const SizedBox(width: Space.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${who(e['actor_id'])} $verb '
+                              '${sectionName(e['table_name'])}',
+                              style: context.text.titleSmall,
+                            ),
+                            Text(when(e['at']), style: context.text.bodySmall),
+                            if (changes.isNotEmpty) ...[
+                              const SizedBox(height: Space.xs),
+                              Text(
+                                changes.join('\n'),
+                                style: context.text.bodyMedium,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                subtitle: Text([when(e['at']), ..._changes(e, who)].join('\n')),
               );
             },
           );

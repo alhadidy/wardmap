@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../roles.dart';
+import '../theme.dart';
 
 /// Colleagues in my hospital. I can create, reset and deactivate accounts
 /// for anyone junior to me (admins: anyone).
@@ -61,49 +63,76 @@ class _TeamTabState extends State<TeamTab> {
       body: FutureBuilder<List<Staff>>(
         future: _staff,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snapshot.hasData) return const Loading();
           final staff = snapshot.data!
             ..sort((a, b) => b.role.rank.compareTo(a.role.rank));
+          final groups = [
+            ('Consultants and admins', (StaffRole r) => r.rank >= 90),
+            ('Residents', (StaffRole r) => r.rank >= 10 && r.rank < 90),
+            ('Rotators', (StaffRole r) => r == StaffRole.rotator),
+            ('Viewers', (StaffRole r) => r == StaffRole.viewer),
+          ];
           return ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+            padding: const EdgeInsets.fromLTRB(
+              Space.lg,
+              Space.sm,
+              Space.lg,
+              96,
+            ),
             children: [
-              for (final s in staff)
-                ListTile(
-                  leading: CircleAvatar(child: Text(s.role.short)),
-                  title: Text(s.fullName),
-                  subtitle: Text(
-                    '@${s.username}${s.isActive ? '' : ' · deactivated'}',
+              for (final (name, inGroup) in groups)
+                if (staff.where((s) => inGroup(s.role)) case final people
+                    when people.isNotEmpty) ...[
+                  SectionHeader('$name · ${people.length}'),
+                  Card(
+                    child: Column(
+                      children: [
+                        for (final (i, s) in people.indexed) ...[
+                          if (i > 0) const Divider(indent: 72),
+                          _personTile(s),
+                        ],
+                      ],
+                    ),
                   ),
-                  enabled: s.isActive,
-                  trailing: !_canManage(s)
-                      ? null
-                      : PopupMenuButton<String>(
-                          onSelected: (choice) => switch (choice) {
-                            'pin' => _resetPin(s),
-                            _ => _run(
-                              () => Api.setActive(s.id, !s.isActive),
-                              s.isActive ? 'Deactivated' : 'Reactivated',
-                            ),
-                          },
-                          itemBuilder: (_) => [
-                            const PopupMenuItem(
-                              value: 'pin',
-                              child: Text('Reset PIN'),
-                            ),
-                            PopupMenuItem(
-                              value: 'active',
-                              child: Text(
-                                s.isActive ? 'Deactivate' : 'Reactivate',
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
+                ],
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _personTile(Staff s) {
+    return ListTile(
+      leading: Opacity(
+        opacity: s.isActive ? 1 : 0.5,
+        child: RoleAvatar(s.role),
+      ),
+      title: Text(s.fullName),
+      subtitle: Text('@${s.username} · ${s.role.label}'),
+      enabled: s.isActive,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!s.isActive) const StatusPill('Deactivated'),
+          if (_canManage(s))
+            PopupMenuButton<String>(
+              onSelected: (choice) => switch (choice) {
+                'pin' => _resetPin(s),
+                _ => _run(
+                  () => Api.setActive(s.id, !s.isActive),
+                  s.isActive ? 'Deactivated' : 'Reactivated',
+                ),
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'pin', child: Text('Reset PIN')),
+                PopupMenuItem(
+                  value: 'active',
+                  child: Text(s.isActive ? 'Deactivate' : 'Reactivate'),
+                ),
+              ],
+            ),
+        ],
       ),
     );
   }
@@ -178,6 +207,7 @@ class _AccountDialogState extends State<_AccountDialog> {
       title: const Text('New account'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
+        spacing: Space.md,
         children: [
           TextField(
             controller: _name,
@@ -202,14 +232,7 @@ class _AccountDialogState extends State<_AccountDialog> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(labelText: 'PIN (6-12 digits)'),
           ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
+          if (_error != null) Notice(_error!, tone: Tone.danger),
         ],
       ),
       actions: [

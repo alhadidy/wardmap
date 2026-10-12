@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../record_sections.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 import 'patient_screen.dart';
 
@@ -50,11 +52,13 @@ class _JuniorsTabState extends State<JuniorsTab> {
         future: _overview,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return Center(child: Text(errorText(snapshot.error!)));
+            return EmptyState(
+              icon: Icons.cloud_off,
+              title: 'Could not load your juniors',
+              message: errorText(snapshot.error!),
+            );
           }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snapshot.hasData) return const Loading();
           final o = snapshot.data!;
           // Doctors junior to me (viewers aren't overseen), most senior first.
           final juniors =
@@ -72,35 +76,35 @@ class _JuniorsTabState extends State<JuniorsTab> {
               (j, o.followUps.where((f) => f['staff_id'] == j.id).toList()),
           ].where((s) => s.$2.isNotEmpty).toList();
           if (sections.isEmpty) {
-            return ListView(
-              children: const [
-                Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text(
-                    'None of your juniors are following patients right now',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
+            return const EmptyState(
+              icon: Icons.supervisor_account_outlined,
+              title: 'Nothing to review',
+              message: 'None of your juniors are following patients right now.',
             );
           }
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 24),
+          return CardList(
             children: [
-              for (final (junior, followUps) in sections) ...[
-                ListTile(
-                  leading: CircleAvatar(child: Text(junior.role.short)),
-                  title: Text(
-                    junior.fullName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  subtitle: Text(
-                    '${followUps.length} patient${followUps.length == 1 ? '' : 's'}',
+              for (final (junior, followUps) in sections)
+                Card(
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: RoleAvatar(junior.role),
+                        title: Text(
+                          junior.fullName,
+                          style: context.text.titleMedium,
+                        ),
+                        subtitle: Text(junior.role.label),
+                        trailing: StatusPill(
+                          count(followUps.length, 'patient'),
+                          tone: Tone.brand,
+                        ),
+                      ),
+                      const Divider(),
+                      for (final f in followUps) _patientTile(o, f),
+                    ],
                   ),
                 ),
-                for (final f in followUps) _patientTile(o, f),
-                const Divider(),
-              ],
             ],
           );
         },
@@ -116,18 +120,40 @@ class _JuniorsTabState extends State<JuniorsTab> {
         lastNote != null &&
         DateTime.now().difference(DateTime.parse(lastNote)) <
             const Duration(hours: 24);
-    final colors = Theme.of(context).colorScheme;
     return ListTile(
-      contentPadding: const EdgeInsets.only(left: 72, right: 16),
+      leading: BedBadge(p['beds']?['label']),
       title: Text(p['full_name']),
-      subtitle: Text(
-        [
-          p['wards']?['name'],
-          if (p['beds'] != null) 'Bed ${p['beds']['label']}',
-          if (tasks > 0) '$tasks open task${tasks == 1 ? '' : 's'}',
-          noteToday ? 'Note ${when(lastNote).substring(11)}' : 'No note in 24h',
-        ].whereType<String>().join(' · '),
-        style: noteToday ? null : TextStyle(color: colors.error),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: Space.xs),
+        child: Wrap(
+          spacing: Space.xs,
+          runSpacing: Space.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (p['wards']?['name'] != null)
+              Padding(
+                padding: const EdgeInsets.only(right: Space.xs),
+                child: Text(p['wards']['name']),
+              ),
+            noteToday
+                ? StatusPill(
+                    'Note ${when(lastNote).substring(11)}',
+                    tone: Tone.success,
+                    icon: Icons.check,
+                  )
+                : const StatusPill(
+                    'No note in 24h',
+                    tone: Tone.danger,
+                    icon: Icons.priority_high,
+                  ),
+            if (tasks > 0)
+              StatusPill(
+                count(tasks, 'open task'),
+                tone: Tone.warning,
+                icon: Icons.checklist,
+              ),
+          ],
+        ),
       ),
       onTap: () async {
         await Navigator.of(context).push(
