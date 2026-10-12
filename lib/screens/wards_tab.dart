@@ -4,7 +4,7 @@ import '../api.dart';
 import '../roles.dart';
 import '../ui.dart';
 import '../ward_types.dart';
-import 'ward_board_screen.dart';
+import 'rooms_screen.dart';
 
 /// All wards in my hospital, each with its type icons. Admins add, edit and
 /// remove wards here.
@@ -115,11 +115,7 @@ class _WardsTabState extends State<WardsTab> {
                       ? null
                       : Text(WardType.of(w).map((t) => t.label).join(' · ')),
                   onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => WardBoardScreen(me: widget.me, ward: w),
-                      ),
-                    );
+                    await openWard(context, widget.me, w);
                     _reload();
                   },
                   trailing: !widget.me.isAdmin

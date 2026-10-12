@@ -125,7 +125,7 @@ class Api {
   static Future<List<Map<String, dynamic>>> beds(String wardId) async {
     final beds = await _db
         .from('beds')
-        .select('id, label, map_row, map_column')
+        .select('id, label, room_id, map_row, map_column, rooms(name)')
         .eq('ward_id', wardId);
     int number(Map b) => int.tryParse(b['label']) ?? 1 << 30;
     return beds..sort((a, b) {
@@ -136,25 +136,53 @@ class Api {
     });
   }
 
-  static Future<Map<String, dynamic>> ward(String wardId) => _db
-      .from('wards')
+  // ---- Rooms (every ward has at least one; admins manage them) ----
+
+  /// A ward's rooms, oldest first. The first is made with the ward.
+  static Future<List<Map<String, dynamic>>> rooms(String wardId) => _db
+      .from('rooms')
       .select('id, name, map_rows, map_columns')
-      .eq('id', wardId)
-      .single();
+      .eq('ward_id', wardId)
+      .order('created_at', ascending: true)
+      .order('name', ascending: true);
 
-  // ---- Ward map (admin only) ----
+  static Future<void> addRoom(String hospitalId, String wardId, String name) =>
+      _db.from('rooms').insert({
+        'hospital_id': hospitalId,
+        'ward_id': wardId,
+        'name': name.trim(),
+      });
 
-  static Future<List<Map<String, dynamic>>> landmarks(String wardId) => _db
+  static Future<void> renameRoom(String roomId, String name) => _mustChange(
+    _db.from('rooms').update({'name': name.trim()}).eq('id', roomId).select(),
+  );
+
+  /// Only an empty room can be removed (the database refuses otherwise).
+  static Future<void> deleteRoom(String roomId) =>
+      _mustChange(_db.from('rooms').delete().eq('id', roomId).select());
+
+  /// Moves a bed to another room of its ward, off the map.
+  static Future<void> moveBedToRoom(String bedId, String roomId) => _mustChange(
+    _db
+        .from('beds')
+        .update({'room_id': roomId, 'map_row': null, 'map_column': null})
+        .eq('id', bedId)
+        .select(),
+  );
+
+  // ---- Room map (admin only) ----
+
+  static Future<List<Map<String, dynamic>>> landmarks(String roomId) => _db
       .from('ward_landmarks')
       .select('id, label, map_row, map_column')
-      .eq('ward_id', wardId);
+      .eq('room_id', roomId);
 
-  static Future<void> setMapSize(String wardId, int rows, int columns) =>
+  static Future<void> setMapSize(String roomId, int rows, int columns) =>
       _mustChange(
         _db
-            .from('wards')
+            .from('rooms')
             .update({'map_rows': rows, 'map_columns': columns})
-            .eq('id', wardId)
+            .eq('id', roomId)
             .select(),
       );
 
@@ -171,12 +199,14 @@ class Api {
   static Future<void> addBedAt(
     String hospitalId,
     String wardId,
+    String roomId,
     String label,
     int row,
     int column,
   ) => _db.from('beds').insert({
     'hospital_id': hospitalId,
     'ward_id': wardId,
+    'room_id': roomId,
     'label': label.trim(),
     'map_row': row,
     'map_column': column,
@@ -185,12 +215,14 @@ class Api {
   static Future<void> addLandmark(
     String hospitalId,
     String wardId,
+    String roomId,
     String label,
     int row,
     int column,
   ) => _db.from('ward_landmarks').insert({
     'hospital_id': hospitalId,
     'ward_id': wardId,
+    'room_id': roomId,
     'label': label.trim(),
     'map_row': row,
     'map_column': column,
@@ -244,12 +276,17 @@ class Api {
   static Future<void> deleteWard(String wardId) =>
       _mustChange(_db.from('wards').delete().eq('id', wardId).select());
 
-  static Future<void> addBed(String hospitalId, String wardId, String label) =>
-      _db.from('beds').insert({
-        'hospital_id': hospitalId,
-        'ward_id': wardId,
-        'label': label.trim(),
-      });
+  static Future<void> addBed(
+    String hospitalId,
+    String wardId,
+    String roomId,
+    String label,
+  ) => _db.from('beds').insert({
+    'hospital_id': hospitalId,
+    'ward_id': wardId,
+    'room_id': roomId,
+    'label': label.trim(),
+  });
 
   static Future<void> deleteBed(String bedId) =>
       _mustChange(_db.from('beds').delete().eq('id', bedId).select());

@@ -383,7 +383,7 @@ class _TransferDialogState extends State<_TransferDialog> {
                   for (final b in freeBeds)
                     DropdownMenuItem(
                       value: b['id'] as String,
-                      child: Text('Bed ${b['label']}'),
+                      child: Text(bedName(b, freeBeds)),
                     ),
                 ],
                 onChanged: (v) => setState(() => _bedId = v),
