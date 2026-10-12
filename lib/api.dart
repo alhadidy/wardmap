@@ -455,10 +455,14 @@ class Api {
   static Future<void> _manageStaff(Map<String, dynamic> body) async {
     try {
       await _db.functions.invoke('manage-staff', body: body);
+    } on FunctionsFetchException {
+      throw Exception('Could not reach the server. Check the connection.');
     } on FunctionException catch (e) {
       final details = e.details;
       throw Exception(
-        details is Map ? details['error'] : 'Something went wrong',
+        details is Map && details['error'] != null
+            ? details['error']
+            : 'Something went wrong (error ${e.status})',
       );
     }
   }

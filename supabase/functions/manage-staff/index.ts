@@ -28,9 +28,13 @@ const RANK: Record<string, number> = {
   rotator: 5, viewer: 0,
 };
 
+// The web app runs on another site (GitHub Pages), so the browser first asks
+// which headers it may send. The Supabase app client adds x-client-info and
+// x-region; leaving any out makes the browser block the request.
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, x-region, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function reply(status: number, body: unknown) {
