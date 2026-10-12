@@ -1,3 +1,6 @@
+import 'dart:math';
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'roles.dart';
@@ -323,8 +326,13 @@ class Api {
   static Future<List<Map<String, dynamic>>> records(
     String table,
     String patientId,
-    String orderBy,
-  ) => _db.from(table).select().eq('patient_id', patientId).order(orderBy);
+    String orderBy, [
+    String columns = '*',
+  ]) => _db
+      .from(table)
+      .select(columns)
+      .eq('patient_id', patientId)
+      .order(orderBy);
 
   static Future<void> addRecord(
     String table,
@@ -356,6 +364,67 @@ class Api {
           }
         : {'done_at': null, 'done_by': null},
   );
+
+  // ---- Images and videos on results (see result_files migration) ----
+
+  static const _files = 'record-files';
+
+  /// Uploads one image or video and attaches it to a result. Files are kept
+  /// at `hospital/patient/random-name` in a private bucket.
+  static Future<void> addResultFile({
+    required String hospitalId,
+    required String patientId,
+    required String resultId,
+    required String fileName,
+    required String contentType,
+    required Uint8List bytes,
+  }) async {
+    final dot = fileName.lastIndexOf('.');
+    final ext = dot < 0 ? '' : fileName.substring(dot).toLowerCase();
+    final random = Random.secure();
+    final name = List.generate(
+      16,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    final path = '$hospitalId/$patientId/$name$ext';
+    await _db.storage
+        .from(_files)
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: contentType),
+        );
+    await _db.from('result_files').insert({
+      'hospital_id': hospitalId,
+      'patient_id': patientId,
+      'result_id': resultId,
+      'path': path,
+      'file_name': fileName,
+      'content_type': contentType,
+      'size_bytes': bytes.length,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> resultFiles(String resultId) => _db
+      .from('result_files')
+      .select()
+      .eq('result_id', resultId)
+      .order('created_at');
+
+  /// Links that open the given files for an hour.
+  static Future<Map<String, String>> fileLinks(List<String> paths) async {
+    if (paths.isEmpty) return {};
+    final links = await _db.storage
+        .from(_files)
+        .createSignedUrlsResult(paths, 3600);
+    return {
+      for (final l in links.whereType<SignedUrlSuccess>()) l.path: l.signedUrl,
+    };
+  }
+
+  /// Takes the file off the result. The stored file is kept for the history.
+  static Future<void> removeResultFile(String id) =>
+      _mustChange(_db.from('result_files').delete().eq('id', id).select());
 
   static Future<void> setDischargeSummary(String patientId, String text) =>
       _mustChange(

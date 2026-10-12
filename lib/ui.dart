@@ -13,6 +13,14 @@ String errorText(Object e) {
       _ => e.message,
     };
   }
+  if (e is StorageException) {
+    return switch (e.statusCode) {
+      '403' => 'You don\'t have permission to do that.',
+      '413' => 'That file is too big (50 MB at most).',
+      '415' => 'Only images and videos can be added.',
+      _ => e.message,
+    };
+  }
   return e.toString().replaceFirst('Exception: ', '');
 }
 
