@@ -8,7 +8,7 @@ Open a patient (from a ward board or **My patients**). The tabs across the top a
 | Problems | Diagnoses and problems, active or resolved |
 | Notes | Daily progress notes, with author and time |
 | Vitals | Temperature, heart rate, blood pressure, respiratory rate, SpO₂ |
-| Results | Lab and imaging results |
+| Results | Lab and imaging results, with images and videos (see below) |
 | Meds | Medications with dose, route, frequency, start and stop |
 | Tasks | Team to-dos, optionally assigned and with a due time; tick when done |
 | History | Every change ever made to this patient (see below) |
@@ -22,6 +22,27 @@ Open a patient (from a ward board or **My patients**). The tabs across the top a
 - After discharge the record is read-only, except the discharge summary.
 - Each entry's author and time are set from the login and can't be changed
   or faked.
+
+## Images and videos on results
+
+Each result can carry images and videos: a photo of a lab report, CT or MRI
+slices, an echo or ultrasound clip.
+
+- On a result, tap the picture icon (or the count, once it has files).
+- **Take photo** and **Record video** use the phone's camera; **Choose files**
+  picks one or more images or videos from the phone or computer.
+- Tap a picture to open it full screen (pinch to zoom), or a video to play it.
+- Up to 50 MB per file. Longer phone videos can be bigger than that; trim
+  them first.
+- Who can see and add them follows the record's rules above. Seniors
+  overseeing the team can open them but not add.
+- Removing a file (bin icon in the full-screen view) takes it off the result
+  and is kept in the History tab. The stored file itself is never deleted.
+
+Files are kept in a private storage bucket, `record-files`, at
+`hospital id/patient id/random name`. The bucket and its access rules are
+in `supabase/migrations/*_result_files.sql`; links to open a file last an
+hour.
 
 ## History tab
 
