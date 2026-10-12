@@ -3,6 +3,20 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.1.0 (2026-10-12): Ward types
+
+Added
+- Wards can be tagged with one or more types (Men, Women, Children, Neonatal,
+  Maternity, ER, ICU, RCU, CCU, HDU, Medical, Surgical, Neuro, Ortho, Burns,
+  Oncology, Renal, Psychiatric, Isolation, Recovery, Day case). Each shows as
+  an icon on the Wards tab and the ward board.
+
+Changed
+- The ward menu's "Rename" is now "Edit name and type".
+
+Admin: nothing to do; the "Deploy backend" job adds the new database column
+when this is merged.
+
 ## 1.0.2 (2026-10-12): Backend updates itself from GitHub
 
 Added

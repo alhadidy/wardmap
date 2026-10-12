@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../roles.dart';
 import '../ui.dart';
+import '../ward_types.dart';
 import 'admit_screen.dart';
 import 'patient_screen.dart';
 
@@ -212,7 +213,15 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     final canAdmit = widget.me.role != StaffRole.viewer;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.ward['name']),
+        title: Row(
+          children: [
+            WardTypeIcons(WardType.of(widget.ward), size: 20),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(widget.ward['name'], overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
         actions: [
           if (widget.me.isAdmin && !_editing)
             IconButton(
