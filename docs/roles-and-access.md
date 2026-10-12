@@ -54,7 +54,7 @@ responsible consultant as owner.
 
 ## Wards, beds, admitting and discharge
 
-- Admins add, rename and remove wards and beds. A ward or bed still in use
+- Admins add, rename and remove wards, rooms and beds. A ward or bed still in use
   can't be removed.
 - Anyone except viewers can admit a patient.
 - Anyone who can edit a patient can transfer them (ward or bed) and discharge them.

@@ -5,19 +5,30 @@ import 'package:flutter/material.dart';
 import '../api.dart';
 import '../roles.dart';
 import '../ui.dart';
+import '../ward_types.dart';
 import 'admit_screen.dart';
 import 'patient_screen.dart';
+import 'rooms_screen.dart';
 
-/// One ward at a glance: every bed, free or taken, and the patients in it
+/// One room at a glance: every bed, free or taken, and the patients in it
 /// that I can see. Taken beds whose patient I can't see show as "Occupied".
+/// A ward with a single room opens straight here, so it reads as the ward.
 ///
-/// Once an admin lays the ward out on its map (Edit map), beds are drawn
+/// Once an admin lays the room out on its map (Edit map), beds are drawn
 /// where they really are, with landmarks such as the nurse station.
 class WardBoardScreen extends StatefulWidget {
-  const WardBoardScreen({super.key, required this.me, required this.ward});
+  const WardBoardScreen({
+    super.key,
+    required this.me,
+    required this.ward,
+    required this.room,
+    this.severalRooms = false,
+  });
 
   final Staff me;
   final Map<String, dynamic> ward;
+  final Map<String, dynamic> room;
+  final bool severalRooms;
 
   @override
   State<WardBoardScreen> createState() => _WardBoardScreenState();
@@ -25,21 +36,31 @@ class WardBoardScreen extends StatefulWidget {
 
 class _WardBoard {
   _WardBoard(
-    this.ward,
-    this.beds,
+    this.room,
+    this.rooms,
+    List<Map<String, dynamic>> wardBeds,
     this.occupied,
     this.patients,
     this.landmarks,
-  );
+  ) : beds = wardBeds.where((b) => b['room_id'] == room['id']).toList();
 
-  final Map<String, dynamic> ward;
+  final Map<String, dynamic> room;
+
+  /// Every room in the ward, this one included.
+  final List<Map<String, dynamic>> rooms;
+
+  /// Beds in this room only.
   final List<Map<String, dynamic>> beds;
   final Set<String> occupied;
+
+  /// Patients in the whole ward that I can see.
   final List<Map<String, dynamic>> patients;
   final List<Map<String, dynamic>> landmarks;
 
-  int get rows => ward['map_rows'];
-  int get columns => ward['map_columns'];
+  bool get hasSeveralRooms => rooms.length > 1;
+
+  int get rows => room['map_rows'];
+  int get columns => room['map_columns'];
 
   Map<String, dynamic>? patientIn(String bedId) =>
       patients.where((p) => p['bed_id'] == bedId).firstOrNull;
@@ -88,6 +109,7 @@ class _Picked {
 
 class _WardBoardScreenState extends State<WardBoardScreen> {
   String get _wardId => widget.ward['id'];
+  String get _roomId => widget.room['id'];
   late Future<_WardBoard> _board = _load();
   bool _editing = false;
   _Picked? _picked;
@@ -98,19 +120,28 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
   (int, int)? _unsavedSize;
   Future<void>? _resizeSaving;
 
+  /// The ward's rooms, once loaded. The title and actions depend on them.
+  List<Map<String, dynamic>>? _rooms;
+
+  bool get _severalRooms =>
+      (_rooms?.length ?? 1) > 1 || widget.severalRooms && _rooms == null;
+
   static const _minCellWidth = 72.0;
   static const _maxCellWidth = 120.0;
   static const _cellHeight = 72.0;
 
   Future<_WardBoard> _load() async {
     // Fetched side by side, not one after another.
-    final ward = Api.ward(_wardId);
+    final roomsLoad = Api.rooms(_wardId);
     final beds = Api.beds(_wardId);
     final occupied = Api.occupiedBeds(_wardId);
     final patients = Api.wardPatients(_wardId);
-    final landmarks = Api.landmarks(_wardId);
+    final landmarks = Api.landmarks(_roomId);
+    final rooms = await roomsLoad;
+    if (mounted) setState(() => _rooms = rooms);
     return _WardBoard(
-      await ward,
+      rooms.where((r) => r['id'] == _roomId).firstOrNull ?? widget.room,
+      rooms,
       await beds,
       await occupied,
       await patients,
@@ -124,7 +155,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     final size = _unsavedSize;
     if (size != null) {
       // Leaving mid-change: save it anyway. Nowhere to show an error now.
-      Api.setMapSize(_wardId, size.$1, size.$2).ignore();
+      Api.setMapSize(_roomId, size.$1, size.$2).ignore();
     }
     super.dispose();
   }
@@ -149,7 +180,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     final label = await askText(context, 'New bed', 'Bed name or number');
     if (label == null || !mounted) return;
     await _do(
-      () => Api.addBed(widget.me.hospitalId, _wardId, label),
+      () => Api.addBed(widget.me.hospitalId, _wardId, _roomId, label),
       'Bed added',
     );
   }
@@ -171,8 +202,8 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
       return;
     }
     setState(() {
-      board.ward['map_rows'] = rows;
-      board.ward['map_columns'] = columns;
+      board.room['map_rows'] = rows;
+      board.room['map_columns'] = columns;
     });
     _unsavedSize = (rows, columns);
     _resizeTimer?.cancel();
@@ -192,7 +223,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     if (size == null) return;
     _unsavedSize = null;
     final messenger = ScaffoldMessenger.of(context);
-    final saving = _resizeSaving = Api.setMapSize(_wardId, size.$1, size.$2)
+    final saving = _resizeSaving = Api.setMapSize(_roomId, size.$1, size.$2)
         .then(
           (_) => messenger.showSnackBar(
             const SnackBar(content: Text('Map resized')),
@@ -254,19 +285,62 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
       final label = await askText(context, 'New bed', 'Bed name or number');
       if (label == null || !mounted) return;
       await _do(
-        () => Api.addBedAt(widget.me.hospitalId, _wardId, label, row, column),
+        () => Api.addBedAt(
+          widget.me.hospitalId,
+          _wardId,
+          _roomId,
+          label,
+          row,
+          column,
+        ),
         'Bed added',
       );
     } else {
       final label = await askText(context, 'Label', 'e.g. Nurse station');
       if (label == null || !mounted) return;
       await _do(
-        () =>
-            Api.addLandmark(widget.me.hospitalId, _wardId, label, row, column),
+        () => Api.addLandmark(
+          widget.me.hospitalId,
+          _wardId,
+          _roomId,
+          label,
+          row,
+          column,
+        ),
         'Label added',
       );
     }
   }
+
+  Future<void> _moveToRoom(Map<String, dynamic> bed) async {
+    final roomId = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final room in _rooms ?? const <Map<String, dynamic>>[])
+              if (room['id'] != _roomId)
+                ListTile(
+                  leading: const Icon(Icons.meeting_room_outlined),
+                  title: Text('Move bed ${bed['label']} to ${room['name']}'),
+                  onTap: () => Navigator.pop(context, room['id'] as String),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (roomId == null || !mounted) return;
+    await _do(() => Api.moveBedToRoom(bed['id'], roomId), 'Bed moved');
+  }
+
+  /// A single-room ward opens straight on its beds, so admins reach the
+  /// rooms list from here to add a second room.
+  Future<void> _openRooms() => Navigator.of(context).pushReplacement(
+    MaterialPageRoute(
+      builder: (_) => RoomsScreen(me: widget.me, ward: widget.ward),
+    ),
+  );
 
   // ---- Building the screen ----
 
@@ -275,8 +349,27 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     final canAdmit = widget.me.role != StaffRole.viewer;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.ward['name']),
+        title: Row(
+          children: [
+            WardTypeIcons(WardType.of(widget.ward), size: 20),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                _severalRooms
+                    ? '${widget.room['name']} · ${widget.ward['name']}'
+                    : widget.ward['name'],
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
+          if (widget.me.isAdmin && !_editing && !_severalRooms)
+            IconButton(
+              tooltip: 'Rooms',
+              onPressed: _openRooms,
+              icon: const Icon(Icons.meeting_room_outlined),
+            ),
           if (widget.me.isAdmin && !_editing)
             IconButton(
               tooltip: 'Add bed',
@@ -328,7 +421,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               children: [
                 Text(
-                  '${board.beds.length} beds · $free free',
+                  '${count(board.beds.length, 'bed')} · $free free',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: 8),
@@ -357,7 +450,8 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
                       SizedBox(width: 160, child: _bedCard(board, bed)),
                   ],
                 ),
-                if (board.withoutBed.isNotEmpty) ...[
+                // With several rooms these are listed on the rooms screen.
+                if (!board.hasSeveralRooms && board.withoutBed.isNotEmpty) ...[
                   const SizedBox(height: 24),
                   Text(
                     'Without a bed',
@@ -533,6 +627,11 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
                         'Taken off the map',
                       ),
                       child: const Text('Take off map'),
+                    ),
+                  if (picked.isBed && _severalRooms)
+                    TextButton(
+                      onPressed: () => _moveToRoom(picked.item),
+                      child: const Text('Move to room'),
                     ),
                   TextButton(
                     onPressed: () => picked.isBed

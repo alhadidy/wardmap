@@ -3,14 +3,57 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
-## 1.0.3 (2026-10-12): Faster map resizing
+## 1.2.1 (2026-10-12): Faster map resizing
 
 Fixed
-- Changing a ward map's rows or columns now shows straight away. Before, each
+- Changing a room map's rows or columns now shows straight away. Before, each
   tap waited for the save and a full reload of the ward, so taps lagged and
   quick taps could be lost. Several quick taps are now saved together.
 - The ward screen loads its beds, patients and labels at the same time, so it
   opens and refreshes faster.
+
+## 1.2.0 (2026-10-12): Rooms
+
+Added
+- Wards now have rooms, and beds belong to a room. A ward with one room opens
+  straight on its beds as before; a ward with several rooms opens on a list
+  of its rooms showing free beds in each.
+- Admins add, rename and remove rooms, and move a bed to another room from
+  Edit map. Each room has its own map.
+- When admitting or transferring, beds show their room if the ward has
+  several (e.g. "Bed 3 · Side room").
+
+Changed
+- Every existing ward becomes a ward with one room ("Room 1") holding all its
+  beds and its map, so nothing looks different until a second room is added.
+
+Admin: nothing to do; the "Deploy backend" job moves existing beds into
+rooms when this is merged.
+
+## 1.1.0 (2026-10-12): Ward types
+
+Added
+- Wards can be tagged with one or more types (Men, Women, Children, Neonatal,
+  Maternity, ER, ICU, RCU, CCU, HDU, Medical, Surgical, Neuro, Ortho, Burns,
+  Oncology, Renal, Psychiatric, Isolation, Recovery, Day case). Each shows as
+  an icon on the Wards tab and the ward board.
+
+Changed
+- The ward menu's "Rename" is now "Edit name and type".
+
+Admin: nothing to do; the "Deploy backend" job adds the new database column
+when this is merged.
+
+## 1.0.3 (2026-10-12): Fix creating accounts from the web app
+
+Fixed
+- Creating accounts, resetting PINs and deactivating staff failed with
+  "Something went wrong" in the web app. The browser blocked the request
+  because the account function didn't allow one of the headers the app sends.
+- Connection problems now say "Could not reach the server" instead.
+
+Admin: nothing to do; the "Deploy backend" job redeploys the function when
+this is merged.
 
 ## 1.0.2 (2026-10-12): Backend updates itself from GitHub
 
