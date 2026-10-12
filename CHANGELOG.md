@@ -3,6 +3,15 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.0.2 (2026-10-12): Backend updates itself from GitHub
+
+Added
+- "Deploy backend" job on GitHub that creates and updates the database tables
+  and the account function whenever `supabase/` changes on main, or on demand.
+
+Admin: add repository secrets `SUPABASE_ACCESS_TOKEN` and
+`SUPABASE_DB_PASSWORD`, then run Actions → Deploy backend once.
+
 ## 1.0.1 (2026-10-12): Add a hospital without a terminal
 
 Added

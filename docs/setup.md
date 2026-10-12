@@ -10,7 +10,14 @@ Wardmap has two parts:
 
 1. Create a free project at supabase.com. Note its **Project URL** and
    **publishable key** (Project Settings → API).
-2. Install the [Supabase CLI](https://supabase.com/docs/guides/cli), then from
+2. **From GitHub (no terminal):** add repository secrets (Settings → Secrets
+   and variables → Actions → Secrets) `SUPABASE_ACCESS_TOKEN` (supabase.com →
+   Account → Access Tokens), `SUPABASE_DB_PASSWORD` and `SETUP_KEY` (a long
+   random secret you pick), plus the `SUPABASE_URL` variable from section 4.
+   Then run **Actions → Deploy backend**. It runs again by itself whenever
+   `supabase/` changes on main. Skip the CLI steps below.
+
+   **Or from a terminal:** install the [Supabase CLI](https://supabase.com/docs/guides/cli), then from
    this folder:
 
    ```sh
