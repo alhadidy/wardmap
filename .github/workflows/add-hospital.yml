@@ -1,0 +1,55 @@
+# Creates a hospital and its first admin account, without needing a terminal.
+# Run it from Actions → "Add hospital" → Run workflow.
+# Needs two repository secrets (Settings → Secrets and variables → Actions → Secrets):
+#   SETUP_KEY  the same value as the SETUP_KEY secret in Supabase
+#   ADMIN_PIN  the new admin's PIN (6-12 digits); change it afterwards if you like
+# Secrets never appear in the run's log. Only people who can push to this
+# repository can run it.
+name: Add hospital
+
+on:
+  workflow_dispatch:
+    inputs:
+      hospital_name:
+        description: Hospital name
+        required: true
+      username:
+        description: Admin username (lowercase letters, numbers, . _ -)
+        required: true
+        default: admin
+      full_name:
+        description: Admin's full name
+        required: true
+
+permissions: {}
+
+jobs:
+  add-hospital:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create hospital and admin
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ vars.SUPABASE_KEY }}
+          SETUP_KEY: ${{ secrets.SETUP_KEY }}
+          ADMIN_PIN: ${{ secrets.ADMIN_PIN }}
+          HOSPITAL_NAME: ${{ inputs.hospital_name }}
+          USERNAME: ${{ inputs.username }}
+          FULL_NAME: ${{ inputs.full_name }}
+        run: |
+          for v in SUPABASE_URL SUPABASE_KEY SETUP_KEY ADMIN_PIN; do
+            if [ -z "${!v}" ]; then echo "::error::$v is not set (see the top of add-hospital.yml)"; exit 1; fi
+          done
+          body=$(jq -n --arg k "$SETUP_KEY" --arg h "$HOSPITAL_NAME" --arg u "$USERNAME" \
+            --arg f "$FULL_NAME" --arg p "$ADMIN_PIN" \
+            '{action:"add_hospital", setup_key:$k, hospital_name:$h, username:$u, full_name:$f, pin:$p}')
+          status=$(curl -sS -o response.json -w '%{http_code}' -X POST \
+            "$SUPABASE_URL/functions/v1/manage-staff" \
+            -H "Content-Type: application/json" -H "apikey: $SUPABASE_KEY" -d "$body")
+          answer=$(jq -c 'del(.pin)' response.json 2>/dev/null || head -c 300 response.json)
+          if [ "$status" = 200 ]; then
+            echo "::notice::Created hospital '$HOSPITAL_NAME' with admin '$USERNAME'. Log in with that username and ADMIN_PIN."
+          else
+            echo "::error::Supabase answered $status: $answer"
+            exit 1
+          fi

@@ -3,6 +3,15 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.0.1 (2026-10-12): Add a hospital without a terminal
+
+Added
+- "Add hospital" job on GitHub (Actions tab) that creates a hospital and its
+  first admin account with one click.
+
+Admin: add repository secrets `SETUP_KEY` (same as in Supabase) and
+`ADMIN_PIN` before running it. See docs/setup.md, section 2.
+
 ## 1.0.0 (2026-10-10): Launch
 
 Added
