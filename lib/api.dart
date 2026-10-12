@@ -116,8 +116,10 @@ class Api {
 
   // ---- Wards and beds ----
 
-  static Future<List<Map<String, dynamic>>> wards() =>
-      _db.from('wards').select('id, name').order('name', ascending: true);
+  static Future<List<Map<String, dynamic>>> wards() => _db
+      .from('wards')
+      .select('id, name, types')
+      .order('name', ascending: true);
 
   /// Beds in a ward, in natural order (Bed 2 before Bed 10).
   static Future<List<Map<String, dynamic>>> beds(String wardId) async {
@@ -248,12 +250,27 @@ class Api {
   }
 
   /// Admin only (the database refuses anyone else).
-  static Future<void> addWard(String hospitalId, String name) => _db
-      .from('wards')
-      .insert({'hospital_id': hospitalId, 'name': name.trim()});
+  /// [types] are ward type keys (see ward_types.dart).
+  static Future<void> addWard(
+    String hospitalId,
+    String name,
+    List<String> types,
+  ) => _db.from('wards').insert({
+    'hospital_id': hospitalId,
+    'name': name.trim(),
+    'types': types,
+  });
 
-  static Future<void> renameWard(String wardId, String name) => _mustChange(
-    _db.from('wards').update({'name': name.trim()}).eq('id', wardId).select(),
+  static Future<void> updateWard(
+    String wardId,
+    String name,
+    List<String> types,
+  ) => _mustChange(
+    _db
+        .from('wards')
+        .update({'name': name.trim(), 'types': types})
+        .eq('id', wardId)
+        .select(),
   );
 
   static Future<void> deleteWard(String wardId) =>
@@ -475,10 +492,14 @@ class Api {
   static Future<void> _manageStaff(Map<String, dynamic> body) async {
     try {
       await _db.functions.invoke('manage-staff', body: body);
+    } on FunctionsFetchException {
+      throw Exception('Could not reach the server. Check the connection.');
     } on FunctionException catch (e) {
       final details = e.details;
       throw Exception(
-        details is Map ? details['error'] : 'Something went wrong',
+        details is Map && details['error'] != null
+            ? details['error']
+            : 'Something went wrong (error ${e.status})',
       );
     }
   }

@@ -6,8 +6,20 @@ and **Team**. Each patient's record is described in
 
 ## Wards tab
 
-Lists every ward in your hospital. Tap a ward to open it. Admins also see
-**New ward**, and a menu on each ward to rename or remove it.
+Lists every ward in your hospital with its type icons. Tap a ward to open
+it (see Rooms below). Admins also see **New ward**, and a menu on each ward to
+edit its name and type or remove it.
+
+**Ward types.** When adding or editing a ward, pick any types that apply.
+A ward can have several, e.g. *Women* and *Children* for a women and
+children ward. Each type shows as an icon next to the ward's name:
+
+Men, Women, Children, Neonatal, Maternity, ER, ICU, RCU, CCU, HDU, Medical,
+Surgical, Neuro, Ortho, Burns, Oncology, Renal, Psychiatric, Isolation,
+Recovery, Day case.
+
+To add a new type, add it to `lib/ward_types.dart` and to a new database
+migration (the list in `20261012120000_ward_types.sql` is the starting point).
 
 ## Rooms
 
