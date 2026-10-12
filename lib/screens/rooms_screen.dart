@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../floor_plan.dart';
 import '../roles.dart';
 import '../ui.dart';
 import '../ward_types.dart';
@@ -58,6 +59,11 @@ class _Rooms {
   int freeIn(String roomId) =>
       bedsIn(roomId).where((b) => !occupied.contains(b['id'])).length;
 
+  BedState stateOf(Map<String, dynamic> bed) {
+    if (patients.any((p) => p['bed_id'] == bed['id'])) return BedState.mine;
+    return occupied.contains(bed['id']) ? BedState.occupied : BedState.free;
+  }
+
   List<Map<String, dynamic>> get withoutBed =>
       patients.where((p) => p['bed_id'] == null).toList();
 }
@@ -114,6 +120,107 @@ class _RoomsScreenState extends State<RoomsScreen> {
       return;
     }
     await _do(() => Api.deleteRoom(room['id']), 'Room removed');
+  }
+
+  /// The ward from above: its rooms side by side inside the outer walls,
+  /// each drawn in miniature with its beds coloured by state.
+  Widget _wardPlan(_Rooms data) {
+    return FloorPlan(
+      name: widget.ward['name'],
+      padding: const EdgeInsets.all(8),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final perRow = (c.maxWidth / 170).floor().clamp(1, 4);
+          final width = (c.maxWidth - (perRow - 1) * 8) / perRow;
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final room in data.rooms)
+                SizedBox(width: width, child: _roomTile(data, room)),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _roomTile(_Rooms data, Map<String, dynamic> room) {
+    final beds = data.bedsIn(room['id']);
+    final summary =
+        '${count(beds.length, 'bed')} · ${data.freeIn(room['id'])} free';
+    return Material(
+      color: Colors.white,
+      elevation: 1,
+      borderRadius: BorderRadius.circular(8),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _open(
+          WardBoardScreen(
+            me: widget.me,
+            ward: widget.ward,
+            room: room,
+            severalRooms: data.rooms.length > 1,
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 0, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      room['name'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  if (widget.me.isAdmin)
+                    PopupMenuButton<String>(
+                      tooltip: 'Room options',
+                      onSelected: (c) =>
+                          c == 'rename' ? _renameRoom(room) : _deleteRoom(room),
+                      itemBuilder: (_) => [
+                        const PopupMenuItem(
+                          value: 'rename',
+                          child: Text('Rename'),
+                        ),
+                        if (data.rooms.length > 1)
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Remove'),
+                          ),
+                      ],
+                    )
+                  else
+                    const SizedBox(height: 40),
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: RoomMiniPlan(
+                  rows: room['map_rows'],
+                  columns: room['map_columns'],
+                  beds: [
+                    for (final b in beds)
+                      (
+                        row: b['map_row'] as int?,
+                        column: b['map_column'] as int?,
+                        state: data.stateOf(b),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(summary, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -175,41 +282,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
-                for (final room in data.rooms)
-                  ListTile(
-                    leading: const Icon(Icons.meeting_room_outlined),
-                    title: Text(room['name']),
-                    subtitle: Text(
-                      '${count(data.bedsIn(room['id']).length, 'bed')} · '
-                      '${data.freeIn(room['id'])} free',
-                    ),
-                    onTap: () => _open(
-                      WardBoardScreen(
-                        me: widget.me,
-                        ward: widget.ward,
-                        room: room,
-                        severalRooms: data.rooms.length > 1,
-                      ),
-                    ),
-                    trailing: !widget.me.isAdmin
-                        ? const Icon(Icons.chevron_right)
-                        : PopupMenuButton<String>(
-                            onSelected: (c) => c == 'rename'
-                                ? _renameRoom(room)
-                                : _deleteRoom(room),
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'rename',
-                                child: Text('Rename'),
-                              ),
-                              if (data.rooms.length > 1)
-                                const PopupMenuItem(
-                                  value: 'delete',
-                                  child: Text('Remove'),
-                                ),
-                            ],
-                          ),
-                  ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: BedLegend(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _wardPlan(data),
+                ),
                 if (data.withoutBed.isNotEmpty) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),

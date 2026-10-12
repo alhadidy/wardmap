@@ -27,8 +27,8 @@ A ward has one or more rooms, and each room has its beds.
 
 - **A ward with one room** opens straight on its beds (the ward board below);
   the room is never shown. Every ward starts this way.
-- **A ward with several rooms** opens on its list of rooms, each with how many
-  beds it has and how many are free. Tap a room to open its board. Patients
+- **A ward with several rooms** opens on a plan of the ward: its rooms side
+  by side, each in miniature with its beds coloured, and how many are free. Tap a room to open its board. Patients
   in the ward without a bed are listed here, under **Without a bed**.
 
 Admins manage rooms:
@@ -47,7 +47,10 @@ transferring, each bed shows its room: *Bed 3 · Side room*.
 
 ## Ward board
 
-Shows every bed in the room (for a one-room ward, the whole ward):
+Shows the room from above, like a floor plan: walls around the floor, every
+bed drawn as a bed, and labels such as the nurse station with an icon. For a
+one-room ward this is the whole ward. Bed colours: light green is free, teal
+is your patient, grey is taken by someone you can't see.
 
 | Bed shows | Meaning | Tap it to |
 |---|---|---|

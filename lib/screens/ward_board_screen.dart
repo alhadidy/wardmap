@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../floor_plan.dart';
 import '../roles.dart';
 import '../ui.dart';
 import '../ward_types.dart';
@@ -118,9 +119,16 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
   bool get _severalRooms =>
       (_rooms?.length ?? 1) > 1 || widget.severalRooms && _rooms == null;
 
-  static const _minCellWidth = 72.0;
-  static const _maxCellWidth = 120.0;
-  static const _cellHeight = 72.0;
+  static const _minCellWidth = 84.0;
+  static const _maxCellWidth = 124.0;
+  static const _cellHeight = 116.0;
+
+  /// Size of a bed drawn off the map (not yet placed, or no map yet).
+  static const _bedWidth = 104.0;
+  static const _bedHeight = 124.0;
+
+  /// Room walls and floor padding around the map grid, on each side.
+  static const _planInset = 5.0 + 10.0;
 
   Future<_WardBoard> _load() async {
     final rooms = await Api.rooms(_wardId);
@@ -361,7 +369,9 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
                   '${count(board.beds.length, 'bed')} · $free free',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
+                if (board.beds.isNotEmpty) const BedLegend(),
+                const SizedBox(height: 12),
                 if (_editing) _sizeControls(board),
                 if (board.beds.isEmpty && !_editing)
                   Text(
@@ -379,14 +389,11 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final bed in listed)
-                      SizedBox(width: 160, child: _bedCard(board, bed)),
-                  ],
-                ),
+                if (listed.isNotEmpty)
+                  showMap
+                      ? _bedRow(board, listed)
+                      // No map yet: the beds still stand in a room.
+                      : FloorPlan(child: _bedRow(board, listed)),
                 // With several rooms these are listed on the rooms screen.
                 if (!board.hasSeveralRooms && board.withoutBed.isNotEmpty) ...[
                   const SizedBox(height: 24),
@@ -438,32 +445,50 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     );
   }
 
-  /// The ward drawn as a grid. Cells shrink to fit the screen, down to a
+  Widget _bedRow(_WardBoard board, List<Map<String, dynamic>> beds) => Wrap(
+    children: [
+      for (final bed in beds)
+        SizedBox(
+          width: _bedWidth,
+          height: _bedHeight,
+          child: _bedCard(board, bed),
+        ),
+    ],
+  );
+
+  /// The room drawn from above: walls around a tiled floor, with beds and
+  /// fixtures in their grid cells. Cells shrink to fit the screen, down to a
   /// readable minimum; beyond that the map scrolls sideways.
   Widget _map(_WardBoard board) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cellWidth = (constraints.maxWidth / board.columns).clamp(
-          _minCellWidth,
-          _maxCellWidth,
-        );
+        final cellWidth =
+            ((constraints.maxWidth - 2 * _planInset) / board.columns).clamp(
+              _minCellWidth,
+              _maxCellWidth,
+            );
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var row = 0; row < board.rows; row++)
-                Row(
-                  children: [
-                    for (var column = 0; column < board.columns; column++)
-                      SizedBox(
-                        width: cellWidth,
-                        height: _cellHeight,
-                        child: _cell(board, row, column),
-                      ),
-                  ],
-                ),
-            ],
+          padding: const EdgeInsets.only(bottom: 12),
+          child: FloorPlan(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var row = 0; row < board.rows; row++)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (var column = 0; column < board.columns; column++)
+                        SizedBox(
+                          width: cellWidth,
+                          height: _cellHeight,
+                          child: _cell(board, row, column),
+                        ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         );
       },
@@ -491,22 +516,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
       );
     }
     if (landmark != null) {
-      final label = Card(
-        elevation: 0,
-        color: colors.surfaceContainerHighest,
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(4),
-            child: Text(
-              landmark['label'],
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-          ),
-        ),
-      );
+      final label = PlanFixture(label: landmark['label']);
       if (!_editing) return label;
       return _Selectable(
         label: 'Pick ${landmark['label']}',
@@ -525,6 +535,7 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
           onTap: () => _tapEmptyCell(board, row, column),
           child: DecoratedBox(
             decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
               border: Border.all(color: colors.outlineVariant),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -594,52 +605,35 @@ class _WardBoardScreenState extends State<WardBoardScreen> {
     Map<String, dynamic> bed, {
     bool compact = false,
   }) {
-    final colors = Theme.of(context).colorScheme;
     final patient = board.patientIn(bed['id']);
     final taken = board.occupied.contains(bed['id']);
+    final BedState state;
     final String status;
     final VoidCallback? onTap;
     if (patient != null) {
+      state = BedState.mine;
       status = patient['full_name'];
       onTap = () =>
           _open(PatientScreen(me: widget.me, patientId: patient['id']));
     } else if (taken) {
+      state = BedState.occupied;
       status = 'Occupied';
       onTap = null;
     } else {
+      state = BedState.free;
       status = 'Free';
       onTap = widget.me.role == StaffRole.viewer
           ? null
           : () => _open(AdmitScreen(ward: widget.ward, bedId: bed['id']));
     }
-    return Card(
-      color: taken ? colors.secondaryContainer : colors.surfaceContainerLow,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: widget.me.isAdmin && !taken && !compact
-            ? () => _deleteBed(bed)
-            : null,
-        child: Padding(
-          padding: EdgeInsets.all(compact ? 8 : 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Bed ${bed['label']}',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
-              SizedBox(height: compact ? 2 : 4),
-              Text(
-                status,
-                maxLines: compact ? 1 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: compact ? Theme.of(context).textTheme.bodySmall : null,
-              ),
-            ],
-          ),
-        ),
-      ),
+    return TopDownBed(
+      label: 'Bed ${bed['label']}',
+      status: status,
+      state: state,
+      onTap: onTap,
+      onLongPress: widget.me.isAdmin && !taken && !compact
+          ? () => _deleteBed(bed)
+          : null,
     );
   }
 }

@@ -3,6 +3,20 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.3.0 (2026-10-12): Floor-plan look
+
+Changed
+- Rooms are drawn like a floor plan seen from above: walls around a tiled
+  floor, with each bed shown as a bed (headboard, pillow, blanket).
+- Bed colours: light green is free, teal is your patient, grey is taken by a
+  patient you can't see. A key above the plan explains them.
+- Map labels get an icon from their name (nurse station, WC, entrance, sink,
+  stairs, lift, store…).
+- A ward with several rooms shows its rooms side by side inside the ward's
+  walls, each in miniature with its beds coloured, instead of a plain list.
+
+Admin: nothing to do; no database changes.
+
 ## 1.2.0 (2026-10-12): Rooms
 
 Added
