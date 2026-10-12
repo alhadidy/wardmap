@@ -36,6 +36,7 @@ class RecordSection {
     required this.fields,
     required this.orderBy,
     required this.summary,
+    this.columns = '*',
   });
 
   final String table;
@@ -44,6 +45,9 @@ class RecordSection {
 
   /// Newest first by this column.
   final String orderBy;
+
+  /// What to load for each entry; can include linked tables.
+  final String columns;
 
   /// The two lines shown for an entry in the list.
   final (String, String) Function(Map<String, dynamic> row, StaffLookup who)
@@ -137,6 +141,8 @@ final recordSections = <RecordSection>[
     table: 'results',
     title: 'Results',
     orderBy: 'taken_at',
+    // How many images and videos each result has (see result_files_view.dart).
+    columns: '*, result_files(count)',
     fields: const [
       RecordField(
         'kind',
@@ -216,6 +222,7 @@ String sectionName(String table) => switch (table) {
   'patients' => 'patient details',
   'patient_team' => 'care team',
   'medications' => 'medications',
+  'result_files' => 'result images and videos',
   _ => table,
 };
 

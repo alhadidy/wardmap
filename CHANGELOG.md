@@ -3,7 +3,7 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
-## 1.2.1 (2026-10-12): Faster map resizing
+## 1.3.1 (2026-10-12): Faster map resizing
 
 Fixed
 - Changing a room map's rows or columns now shows straight away. Before, each
@@ -11,6 +11,21 @@ Fixed
   quick taps could be lost. Several quick taps are now saved together.
 - The ward screen loads its beds, patients and labels at the same time, so it
   opens and refreshes faster.
+
+## 1.3.0 (2026-10-12): Images and videos on results
+
+Added
+- Lab and imaging results can have images and videos: take a photo, record
+  a video, or choose files. Tap one to view it full screen or play it.
+  Anyone who can see the patient can open them; editors can add and remove
+  them. Removals are kept in the history. Up to 50 MB per file.
+
+Fixed
+- Android release builds now include internet access, which they need to
+  reach the server.
+
+Admin: nothing to do; the "Deploy backend" job creates the private
+`record-files` storage bucket and its access rules when this is merged.
 
 ## 1.2.0 (2026-10-12): Rooms
 
