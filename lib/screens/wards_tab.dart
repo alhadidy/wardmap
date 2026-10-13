@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 import '../ward_types.dart';
 import 'rooms_screen.dart';
@@ -83,57 +85,73 @@ class _WardsTabState extends State<WardsTab> {
       body: FutureBuilder(
         future: _wards,
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (!snapshot.hasData) return const Loading();
           final wards = snapshot.data!;
           if (wards.isEmpty) {
-            return Center(
-              child: Text(
-                widget.me.isAdmin
-                    ? 'No wards yet. Add the first one.'
-                    : 'No wards yet. An admin needs to add them.',
-              ),
+            return EmptyState(
+              icon: Icons.meeting_room_outlined,
+              title: 'No wards yet',
+              message: widget.me.isAdmin
+                  ? 'Add the first one with New ward.'
+                  : 'An admin needs to add them.',
             );
           }
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+          return CardList(
+            bottom: 96,
             children: [
               for (final w in wards)
-                ListTile(
-                  // Fixed width keeps ward names lined up; many icons shrink.
-                  leading: SizedBox(
-                    width: 76,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: WardTypeIcons(WardType.of(w)),
+                Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.fromLTRB(
+                      Space.md,
+                      Space.xs,
+                      Space.xs,
+                      Space.xs,
                     ),
-                  ),
-                  title: Text(w['name']),
-                  subtitle: WardType.of(w).isEmpty
-                      ? null
-                      : Text(WardType.of(w).map((t) => t.label).join(' · ')),
-                  onTap: () async {
-                    await openWard(context, widget.me, w);
-                    _reload();
-                  },
-                  trailing: !widget.me.isAdmin
-                      ? const Icon(Icons.chevron_right)
-                      : PopupMenuButton<String>(
-                          onSelected: (c) =>
-                              c == 'edit' ? _editWard(w) : _deleteWard(w),
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Edit name and type'),
-                            ),
-                            PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Remove'),
-                            ),
-                          ],
+                    // Fixed width keeps ward names lined up; many icons shrink.
+                    leading: Container(
+                      width: 64,
+                      height: 44,
+                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                      decoration: BoxDecoration(
+                        color: context.colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(Radii.sm),
+                      ),
+                      child: IconTheme(
+                        data: IconThemeData(
+                          color: context.colors.onPrimaryContainer,
                         ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: WardTypeIcons(WardType.of(w)),
+                        ),
+                      ),
+                    ),
+                    title: Text(w['name'], style: context.text.titleMedium),
+                    subtitle: WardType.of(w).isEmpty
+                        ? null
+                        : Text(WardType.of(w).map((t) => t.label).join(' · ')),
+                    onTap: () async {
+                      await openWard(context, widget.me, w);
+                      _reload();
+                    },
+                    trailing: !widget.me.isAdmin
+                        ? const Icon(Icons.chevron_right)
+                        : PopupMenuButton<String>(
+                            onSelected: (c) =>
+                                c == 'edit' ? _editWard(w) : _deleteWard(w),
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Text('Edit name and type'),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Remove'),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
             ],
           );
@@ -195,12 +213,12 @@ class _WardDialogState extends State<_WardDialog> {
                   errorText: _error,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: Space.xl),
               Text(
                 'Type (pick any that apply)',
                 style: Theme.of(context).textTheme.labelLarge,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

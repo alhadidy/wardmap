@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../roles.dart';
+import '../theme.dart';
 import 'juniors_tab.dart';
 import 'login_screen.dart';
 import 'patients_tab.dart';
@@ -43,7 +45,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: _logOut,
                       child: const Text('Account not found. Log out'),
                     )
-                  : const CircularProgressIndicator(),
+                  : const Loading(),
             ),
           );
         }
@@ -52,14 +54,16 @@ class _HomeScreenState extends State<HomeScreen> {
         final tabs = [
           (
             const NavigationDestination(
-              icon: Icon(Icons.meeting_room),
+              icon: Icon(Icons.meeting_room_outlined),
+              selectedIcon: Icon(Icons.meeting_room),
               label: 'Wards',
             ),
             WardsTab(me: me),
           ),
           (
             const NavigationDestination(
-              icon: Icon(Icons.bed),
+              icon: Icon(Icons.bed_outlined),
+              selectedIcon: Icon(Icons.bed),
               label: 'My patients',
             ),
             PatientsTab(me: me),
@@ -67,25 +71,51 @@ class _HomeScreenState extends State<HomeScreen> {
           if (oversees)
             (
               const NavigationDestination(
-                icon: Icon(Icons.supervisor_account),
+                icon: Icon(Icons.supervisor_account_outlined),
+                selectedIcon: Icon(Icons.supervisor_account),
                 label: 'Juniors',
               ),
               JuniorsTab(me: me),
             ),
           (
-            const NavigationDestination(icon: Icon(Icons.group), label: 'Team'),
+            const NavigationDestination(
+              icon: Icon(Icons.group_outlined),
+              selectedIcon: Icon(Icons.group),
+              label: 'Team',
+            ),
             TeamTab(me: me),
           ),
         ];
         return Scaffold(
           appBar: AppBar(
-            title: Text('${me.fullName} · ${me.role.label}'),
+            titleSpacing: Space.lg,
+            title: Row(
+              children: [
+                RoleAvatar(me.role, size: 36),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        me.fullName,
+                        style: context.text.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(me.role.label, style: context.text.bodySmall),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             actions: [
+              const _AppearanceButton(),
               IconButton(
                 tooltip: 'Log out',
                 onPressed: _logOut,
                 icon: const Icon(Icons.logout),
               ),
+              const SizedBox(width: Space.xs),
             ],
           ),
           body: tabs[_tab].$2,
@@ -96,6 +126,39 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Light, dark, or follow the phone's setting.
+class _AppearanceButton extends StatelessWidget {
+  const _AppearanceButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder(
+      valueListenable: themeMode,
+      builder: (context, mode, _) => PopupMenuButton<ThemeMode>(
+        tooltip: 'Appearance',
+        icon: Icon(switch (mode) {
+          ThemeMode.light => Icons.light_mode_outlined,
+          ThemeMode.dark => Icons.dark_mode_outlined,
+          ThemeMode.system => Icons.brightness_auto_outlined,
+        }),
+        onSelected: setThemeMode,
+        itemBuilder: (_) => [
+          for (final (m, label) in [
+            (ThemeMode.system, 'Match phone'),
+            (ThemeMode.light, 'Light'),
+            (ThemeMode.dark, 'Dark'),
+          ])
+            CheckedPopupMenuItem(
+              value: m,
+              checked: m == mode,
+              child: Text(label),
+            ),
+        ],
+      ),
     );
   }
 }

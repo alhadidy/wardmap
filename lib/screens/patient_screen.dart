@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../api.dart';
+import '../components.dart';
 import '../record_sections.dart';
 import '../roles.dart';
+import '../theme.dart';
 import '../ui.dart';
 import 'history_view.dart';
 import 'record_section_view.dart';
@@ -132,14 +134,15 @@ class _PatientScreenState extends State<PatientScreen> {
         if (snapshot.hasError) {
           return Scaffold(
             appBar: AppBar(),
-            body: Center(child: Text(errorText(snapshot.error!))),
+            body: EmptyState(
+              icon: Icons.cloud_off,
+              title: 'Could not open this patient',
+              message: errorText(snapshot.error!),
+            ),
           );
         }
         if (!snapshot.hasData) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: CircularProgressIndicator()),
-          );
+          return Scaffold(appBar: AppBar(), body: const Loading());
         }
         final v = snapshot.data!;
         final p = v.patient;
@@ -180,29 +183,37 @@ class _PatientScreenState extends State<PatientScreen> {
             body: TabBarView(
               children: [
                 ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.lg,
+                    Space.sm,
+                    Space.lg,
+                    Space.xl,
+                  ),
                   children: [
+                    const SectionHeader('Details'),
                     _details(p, discharged),
-                    const SizedBox(height: 16),
+                    const SectionHeader('Discharge summary'),
                     _dischargeSummary(v),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Care team',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        if (canEdit)
-                          TextButton.icon(
-                            onPressed: () => _addMember(v),
-                            icon: const Icon(Icons.person_add),
-                            label: const Text('Add'),
-                          ),
-                      ],
+                    SectionHeader(
+                      'Care team',
+                      trailing: canEdit
+                          ? TextButton.icon(
+                              onPressed: () => _addMember(v),
+                              icon: const Icon(Icons.person_add_outlined),
+                              label: const Text('Add'),
+                            )
+                          : null,
                     ),
-                    for (final member in v.team) _memberTile(v, member),
+                    Card(
+                      child: Column(
+                        children: [
+                          for (final (i, member) in v.team.indexed) ...[
+                            if (i > 0) const Divider(indent: 72),
+                            _memberTile(v, member),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 for (final section in recordSections)
@@ -225,13 +236,19 @@ class _PatientScreenState extends State<PatientScreen> {
   /// Written at discharge; editors can also fill it in after discharge.
   Widget _dischargeSummary(_PatientView v) {
     final summary = v.patient['discharge_summary'] as String?;
+    final empty = summary == null || summary.isEmpty;
     return Card(
       child: ListTile(
-        title: const Text('Discharge summary'),
-        subtitle: Text(
-          summary == null || summary.isEmpty ? 'Not written yet' : summary,
+        title: Text(
+          empty ? 'Not written yet' : summary,
+          style: empty
+              ? context.text.bodyMedium?.copyWith(
+                  color: context.colors.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                )
+              : context.text.bodyMedium,
         ),
-        trailing: _canEdit(v) ? const Icon(Icons.edit) : null,
+        trailing: _canEdit(v) ? const Icon(Icons.edit_outlined) : null,
         onTap: !_canEdit(v)
             ? null
             : () async {
@@ -256,28 +273,51 @@ class _PatientScreenState extends State<PatientScreen> {
   }
 
   Widget _details(Map<String, dynamic> p, bool discharged) {
-    String line(String label, Object? value) => '$label: ${value ?? '—'}';
+    String? day(Object? t) => (t as String?)?.substring(0, 10);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Space.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(line('MRN', p['mrn'])),
-            Text(line('Ward', p['wards']?['name'])),
-            Text(line('Bed', p['beds']?['label'])),
-            Text(line('Date of birth', p['date_of_birth'])),
-            Text(line('Sex', p['sex'])),
-            Text(
-              line('Admitted', (p['admitted_at'] as String).substring(0, 10)),
-            ),
-            if (discharged)
-              Text(
-                line(
-                  'Discharged',
-                  (p['discharged_at'] as String).substring(0, 10),
+            Row(
+              children: [
+                BedBadge(discharged ? null : p['beds']?['label']),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(p['full_name'], style: context.text.titleLarge),
+                      Text(
+                        'MRN ${p['mrn']}',
+                        style: context.text.bodyMedium?.copyWith(
+                          color: context.colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+                discharged
+                    ? const StatusPill('Discharged')
+                    : const StatusPill('Admitted', tone: Tone.brand),
+              ],
+            ),
+            const SizedBox(height: Space.lg),
+            const Divider(),
+            const SizedBox(height: Space.lg),
+            InfoGrid([
+              InfoItem('Ward', p['wards']?['name']),
+              InfoItem('Bed', p['beds']?['label']?.toString()),
+              InfoItem('Date of birth', p['date_of_birth']),
+              InfoItem('Sex', switch (p['sex']) {
+                'male' => 'Male',
+                'female' => 'Female',
+                _ => null,
+              }),
+              InfoItem('Admitted', day(p['admitted_at'])),
+              if (discharged) InfoItem('Discharged', day(p['discharged_at'])),
+            ]),
           ],
         ),
       ),
@@ -288,14 +328,30 @@ class _PatientScreenState extends State<PatientScreen> {
     final person = v.person(member['staff_id']);
     final isMe = member['staff_id'] == widget.me.id;
     final canChange = _canManageTeam(v);
+    final access = member['access'] as String;
     return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(child: Text(person?.role.short ?? '?')),
+      leading: person == null
+          ? const CircleAvatar(child: Text('?'))
+          : RoleAvatar(person.role),
       title: Text('${person?.fullName ?? 'Unknown'}${isMe ? ' (you)' : ''}'),
-      subtitle: Text(member['access']),
-      trailing: !(canChange || isMe)
-          ? null
-          : PopupMenuButton<String>(
+      subtitle: Text(person?.role.label ?? ''),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          StatusPill(
+            switch (access) {
+              'owner' => 'Owner',
+              'edit' => 'Can edit',
+              _ => 'View only',
+            },
+            tone: switch (access) {
+              'owner' => Tone.brand,
+              'edit' => Tone.info,
+              _ => Tone.neutral,
+            },
+          ),
+          if (canChange || isMe)
+            PopupMenuButton<String>(
               onSelected: (c) => _memberAction(v, member['staff_id'], c),
               itemBuilder: (_) => [
                 if (canChange)
@@ -308,6 +364,8 @@ class _PatientScreenState extends State<PatientScreen> {
                 ),
               ],
             ),
+        ],
+      ),
     );
   }
 }
@@ -349,14 +407,12 @@ class _TransferDialogState extends State<_TransferDialog> {
         future: Future.wait([_wards, _freeBeds!]),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const SizedBox(
-              height: 80,
-              child: Center(child: CircularProgressIndicator()),
-            );
+            return const SizedBox(height: 80, child: Loading());
           }
           final [wards, freeBeds] = snapshot.data!;
           return Column(
             mainAxisSize: MainAxisSize.min,
+            spacing: Space.md,
             children: [
               DropdownButtonFormField<String>(
                 initialValue: _wardId,
@@ -442,6 +498,7 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
           ? const Text('There is nobody you can add.')
           : Column(
               mainAxisSize: MainAxisSize.min,
+              spacing: Space.md,
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: _staffId,

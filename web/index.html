@@ -18,19 +18,27 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Wardmap: hospital ward beds, patients and care teams.">
+  <meta name="theme-color" content="#F4F6F8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0B1220" media="(prefers-color-scheme: dark)">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="wardmap">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Wardmap">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>wardmap</title>
+  <title>Wardmap</title>
   <link rel="manifest" href="manifest.json">
+  <!-- Page color while the app loads; matches the app's background
+       (docs/design-system.md). -->
+  <style>
+    body { margin: 0; background: #F4F6F8; }
+    @media (prefers-color-scheme: dark) { body { background: #0B1220; } }
+  </style>
 </head>
 <body>
   <!--

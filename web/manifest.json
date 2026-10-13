@@ -1,11 +1,11 @@
 {
-    "name": "wardmap",
-    "short_name": "wardmap",
+    "name": "Wardmap",
+    "short_name": "Wardmap",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F4F6F8",
+    "theme_color": "#0F766E",
+    "description": "Hospital ward beds, patients and care teams.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

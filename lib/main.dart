@@ -5,6 +5,7 @@ import 'api.dart';
 import 'idle_logout.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'theme.dart';
 
 // Backend address and publishable (public) key, passed at build time:
 //   flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_KEY=...
@@ -22,6 +23,7 @@ final _navigator = GlobalKey<NavigatorState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseKey);
+  await loadThemeMode();
   runApp(const WardmapApp());
 }
 
@@ -44,11 +46,16 @@ class WardmapApp extends StatelessWidget {
         ),
         (_) => false,
       ),
-      child: MaterialApp(
-        navigatorKey: _navigator,
-        title: 'Wardmap',
-        theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
-        home: Api.isLoggedIn ? const HomeScreen() : const LoginScreen(),
+      child: ValueListenableBuilder(
+        valueListenable: themeMode,
+        builder: (context, mode, _) => MaterialApp(
+          navigatorKey: _navigator,
+          title: 'Wardmap',
+          theme: lightTheme(),
+          darkTheme: darkTheme(),
+          themeMode: mode,
+          home: Api.isLoggedIn ? const HomeScreen() : const LoginScreen(),
+        ),
       ),
     );
   }

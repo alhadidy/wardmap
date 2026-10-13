@@ -21,6 +21,7 @@ on Android and iOS from one Flutter codebase.
 | [docs/roles-and-access.md](docs/roles-and-access.md) | Who can see and do what |
 | [docs/change-history.md](docs/change-history.md) | How every change is recorded and how to review it |
 | [docs/architecture.md](docs/architecture.md) | How the pieces fit together, and where to find things |
+| [docs/design-system.md](docs/design-system.md) | Colors, type, spacing and shared components; light and dark |
 | [CHANGELOG.md](CHANGELOG.md) | What changed in the app, version by version |
 
 ## Project status

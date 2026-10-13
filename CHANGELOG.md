@@ -3,6 +3,35 @@
 Every change to Wardmap is listed here, newest first.
 Format: what a user would notice, then anything an admin needs to do.
 
+## 1.4.0 (2026-10-12): New look
+
+Changed
+- A new design across the whole app: calm teal and slate colors, clearer
+  headings, cards with even spacing, and larger buttons that are easier to
+  tap.
+- Status is shown as small colored labels everywhere, with the same meaning
+  on every screen: red needs attention ("No note in 24h"), amber is pending
+  ("2 open tasks"), green is done ("Note 08:30").
+- Login has the Wardmap logo; an automatic logout or a wrong PIN shows in a
+  message box.
+- Patients show their bed number in a badge. The patient overview lays out
+  details in two columns, and the care team shows each person's access
+  (Owner, Can edit, View only).
+- The Team tab groups people by level (consultants and admins, residents,
+  rotators, viewers). Role badges are colored by seniority.
+- History entries are cards with an icon for added, changed or deleted.
+- Empty lists explain what goes there.
+- New app icon and browser colors (no more blue Flutter logo).
+
+Added
+- Dark mode. The app follows the phone's setting; the new appearance button
+  in the top bar switches between Match phone, Light and Dark, and remembers
+  the choice on that device.
+- [docs/design-system.md](docs/design-system.md): the colors, type, spacing
+  and shared components, and how to add to them.
+
+Admin: nothing to do.
+
 ## 1.3.1 (2026-10-12): Faster map resizing
 
 Fixed
